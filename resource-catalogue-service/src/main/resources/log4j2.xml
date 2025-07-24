@@ -20,7 +20,7 @@
                     pattern="${sys:LOG_PATTERN}"/>
         </Console>
         <RollingFile name="RollingFile" fileName="${baseDir}/${app}.log"
-                     filePattern="${baseDir}/$${date:yyyy-MM}/${app}-%d{yyyy-MM-dd_HH:mm:ss}.log.gz">
+                     filePattern="${baseDir}/$${date:yyyy-MM}/${app}-%d{yyyy-MM-dd_HH-mm-ss}.log.gz">
             <PatternLayout
                     pattern="${sys:LOG_PATTERN}"/>
             <Policies>

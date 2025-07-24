@@ -1,0 +1,33 @@
+services:
+  resource-catalogue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      REGISTRY_DATASOURCE_URL: jdbc:postgresql://db:5432/registry
+      REGISTRY_DATASOURCE_USERNAME: root
+      REGISTRY_DATASOURCE_PASSWORD: trust
+      REGISTRY_ELASTICSEARCH_URIS: http://el:9200
+  active_mq:
+    image: apache/activemq-artemis:2.42.0
+    ports:
+      - "61613:61613"
+  db:
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: trust
+    ports:
+      - "5432:5432"
+  el:
+    image: elasticsearch:7.17.28
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+volumes:
+  db-data:
