@@ -7,13 +7,13 @@ pipeline {
     IMAGE_NAME = 'eosc-resource-catalogue'
     REGISTRY = 'europe-west1-docker.pkg.dev/cessda-prod/docker'
     DOCKER_IMAGE = ''
-    DOCKER_TAG = ''
+    DOCKER_TAG = ""
   }
   stages {
     stage('Validate Version & Determine Docker Tag') {
       steps {
         script {
-          def POM_VERSION = sh(script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout | cut -c 1-5', returnStdout: true).trim()
+          def POM_VERSION = sh(script: './mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -c 1-5', returnStdout: true).trim()
           if (env.BRANCH_NAME == 'develop') {
             VERSION = POM_VERSION
             DOCKER_TAG = 'dev'
@@ -31,7 +31,7 @@ pipeline {
             DOCKER_TAG = VERSION
             echo "Detected tag: ${env.TAG_NAME} (version ${VERSION})"
           } else {
-            VERSION = POM_VERSION
+            def VERSION = POM_VERSION
             def branch = env.BRANCH_NAME.replace('/', '-')
             DOCKER_TAG = "${VERSION}-${branch}"
           }
