@@ -13,6 +13,7 @@ pipeline {
     stage('Validate Version & Determine Docker Tag') {
       steps {
         script {
+          def VERSION
           def POM_VERSION = sh(script: './mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -c 1-5', returnStdout: true).trim()
           if (env.BRANCH_NAME == 'develop') {
             VERSION = POM_VERSION
@@ -31,7 +32,7 @@ pipeline {
             DOCKER_TAG = VERSION
             echo "Detected tag: ${env.TAG_NAME} (version ${VERSION})"
           } else {
-            def VERSION = POM_VERSION
+            VERSION = POM_VERSION
             def branch = env.BRANCH_NAME.replace('/', '-')
             DOCKER_TAG = "${VERSION}-${branch}"
           }
