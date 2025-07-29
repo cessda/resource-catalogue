@@ -7,9 +7,17 @@ services:
       - "8080:8080"
     environment:
       REGISTRY_DATASOURCE_URL: jdbc:postgresql://db:5432/registry
-      REGISTRY_DATASOURCE_USERNAME: root
+      REGISTRY_DATASOURCE_USERNAME: postgres
       REGISTRY_DATASOURCE_PASSWORD: trust
       REGISTRY_ELASTICSEARCH_URIS: http://el:9200
+      SPRING_DATA_REDIS_HOST: redis
+  resource-catalogue-ui:
+    image: resource-catalogue-ui
+    environment:
+      PLATFORM_API_ENDPOINT: http://resource-catalogue:8080
+      FAQ_API_ENDPOINT: http://127.0.0.1:87
+    ports:
+      - "80:80"
   active_mq:
     image: apache/activemq-artemis:2.42.0
     ports:
@@ -19,7 +27,7 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: root
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: trust
     ports:
       - "5432:5432"
@@ -29,5 +37,9 @@ services:
       - "9200:9200"
     environment:
       discovery.type: single-node
+  redis:
+    image: redis:8
+    ports:
+      - "6379:6379"
 volumes:
   db-data:
