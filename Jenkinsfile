@@ -1,10 +1,11 @@
 pipeline {
-  agent any
+  agent {
+    label 'jnlp-himem'
+  }
 
   environment {
-    IMAGE_NAME = "resource-catalogue"
-    REGISTRY = "docker.madgik.di.uoa.gr"
-    REGISTRY_CRED = 'docker-registry'
+    IMAGE_NAME = 'eosc-resource-catalogue'
+    REGISTRY = 'europe-west1-docker.pkg.dev/cessda-prod/docker'
     DOCKER_IMAGE = ''
     DOCKER_TAG = ''
   }
@@ -50,20 +51,18 @@ pipeline {
       }
     }
     stage('Upload Image') {
-      when { // upload images only from 'develop', 'release' or 'master' branches
+      when { // upload images only from the 'cessda' branch and tagged builds
         expression {
-          return env.TAG_NAME != null || env.BRANCH_NAME == 'develop' || env.BRANCH_NAME == 'master' || env.BRANCH_NAME.startsWith('release/')
+          return env.TAG_NAME != null || env.BRANCH_NAME == 'cessda'
         }
       }
       steps{
         script {
-          withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-              sh """
-                  echo "Pushing image: ${DOCKER_IMAGE.id}"
-                  echo "$DOCKER_PASS" | docker login ${REGISTRY} -u "$DOCKER_USER" --password-stdin
-              """
-              DOCKER_IMAGE.push()
-          }
+          sh """
+              echo "Pushing image: ${DOCKER_IMAGE.id}"
+              gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}
+          """
+          DOCKER_IMAGE.push()
         }
       }
     }
