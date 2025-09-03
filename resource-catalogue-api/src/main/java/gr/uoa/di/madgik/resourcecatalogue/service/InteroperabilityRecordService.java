@@ -18,10 +18,9 @@ package gr.uoa.di.madgik.resourcecatalogue.service;
 
 import gr.uoa.di.madgik.registry.domain.Paging;
 import gr.uoa.di.madgik.resourcecatalogue.domain.InteroperabilityRecordBundle;
-import gr.uoa.di.madgik.resourcecatalogue.domain.LoggingInfo;
 import org.springframework.security.core.Authentication;
 
-public interface InteroperabilityRecordService extends ResourceService<InteroperabilityRecordBundle>, BundleOperations<InteroperabilityRecordBundle> {
+public interface InteroperabilityRecordService extends ResourceCatalogueService<InteroperabilityRecordBundle>, BundleOperations<InteroperabilityRecordBundle> {
 
     /**
      * Add a new Interoperability Record on an existing Catalogue, providing the Catalogue's ID
@@ -46,33 +45,12 @@ public interface InteroperabilityRecordService extends ResourceService<Interoper
                                         Authentication auth);
 
     /**
-     * Returns the Interoperability Record with the specified ID
-     *
-     * @param id          Interoperability Record ID
-     * @param catalogueId Catalogue ID
-     * @return {@link InteroperabilityRecordBundle}
-     *
-     * @deprecated Since resourceId is unique, catalogueId can be safely removed. Replace with {@link #get(String)}.
-     */
-    @Deprecated(forRemoval = true)
-    InteroperabilityRecordBundle get(String id, String catalogueId);
-
-    /**
      * Get a specific Interoperability Record of an external Catalogue, given its ID, or return null
      *
      * @param id Interoperability Record ID
      * @return {@link InteroperabilityRecordBundle}
      */
     InteroperabilityRecordBundle getOrElseReturnNull(String id);
-
-    /**
-     * Get the history of the specific Interoperability Record of the specific Catalogue ID
-     *
-     * @param id          Interoperability Record ID
-     * @param catalogueId Catalogue ID
-     * @return {@link Paging}&lt;{@link LoggingInfo}&gt;
-     */
-    Paging<LoggingInfo> getLoggingInfoHistory(String id, String catalogueId);
 
     /**
      * Create a Public Interoperability Record
@@ -94,4 +72,11 @@ public interface InteroperabilityRecordService extends ResourceService<Interoper
      */
     Paging<InteroperabilityRecordBundle> getInteroperabilityRecordBundles(String catalogueId, String providerId,
                                                                           Authentication auth);
+
+    /**
+     * Get the EOSC Monitoring Guideline
+     *
+      * @return {@link InteroperabilityRecordBundle}
+     */
+    InteroperabilityRecordBundle getEOSCMonitoringGuideline();
 }

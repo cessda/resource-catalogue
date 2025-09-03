@@ -1,25 +1,163 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" version="1.0">
     
-  <xs:complexType name="adminAuthentication">
+  <xs:complexType name="adapter">
         
     <xs:sequence>
             
-      <xs:element name="authenticated" type="xs:boolean"/>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="admins" nillable="true" type="user">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Adapter user admins]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The Catalogue this Adapter is originally registered at.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="changeLog" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Changes in the latest version]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="description" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Description]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="documentation" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Documentation webpage (e.g., read-the-docs page)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Unique ID (automatically given)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="lastUpdate" type="xs:dateTime">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Latest update date]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="license" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Software/Code license (e.g., MIT, Apache, GPL)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="linkedResource" type="linkedResource">
+        <xs:annotation>
+          <xs:documentation><![CDATA[EOSC Guideline or Service ID]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="logo" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[logo (image) – could be a URL or base64-encoded string]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="name" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Unique name]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Adapter's original Node]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="programmingLanguage" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Programming language]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="releases" nillable="true" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Links to the latest package release page(s) (e.g., PyPI project, Docker image, GitHub releases page)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="repository" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Code repository webpage (e.g., a GitHub repository)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="tagline" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Short catch-phrase]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="version" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Software version]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
           
     </xs:sequence>
       
   </xs:complexType>
     
-  <xs:complexType name="alternativeIdentifier">
+  <xs:complexType name="user">
         
     <xs:sequence>
             
-      <xs:element minOccurs="0" name="type" type="xs:string"/>
+      <xs:element minOccurs="0" name="email" type="xs:string"/>
             
-      <xs:element minOccurs="0" name="value" type="xs:string"/>
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="surname" type="xs:string"/>
           
     </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="linkedResource">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="type" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="adapterBundle">
+        
+    <xs:complexContent>
+            
+      <xs:extension base="bundle">
+                
+        <xs:sequence>
+                    
+          <xs:element minOccurs="0" name="adapter" type="adapter"/>
+                    
+          <xs:element minOccurs="0" name="auditState" type="xs:string"/>
+                    
+          <xs:element minOccurs="0" name="status" type="xs:string"/>
+                  
+        </xs:sequence>
+              
+      </xs:extension>
+          
+    </xs:complexContent>
       
   </xs:complexType>
     
@@ -58,6 +196,8 @@
     <xs:sequence>
             
       <xs:element minOccurs="0" name="originalId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="pid" type="xs:string"/>
           
     </xs:sequence>
       
@@ -123,6 +263,28 @@
       
   </xs:complexType>
     
+  <xs:complexType name="adminAuthentication">
+        
+    <xs:sequence>
+            
+      <xs:element name="authenticated" type="xs:boolean"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="alternativeIdentifier">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="type" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="value" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
   <xs:complexType name="catalogue">
         
     <xs:sequence>
@@ -159,7 +321,7 @@
             
       <xs:element minOccurs="0" name="id" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the  (Multi-Provider Regional or Thematic) Catalogue in the context of the EOSC Portal.]]></xs:documentation>
+          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the (Multi-Provider Regional or Thematic) Catalogue.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -216,6 +378,12 @@ It is also possible to select Not a legal entity.]]></xs:documentation>
       <xs:element maxOccurs="unbounded" minOccurs="0" name="networks" nillable="true" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[Catalogues that are members of networks should list those networks here.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Catalogue's original Node]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -421,22 +589,6 @@ It is also possible to select Not a legal entity.]]></xs:documentation>
       
   </xs:complexType>
     
-  <xs:complexType name="user">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="email" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="name" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="surname" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
   <xs:complexType name="catalogueBundle">
         
     <xs:complexContent>
@@ -473,6 +625,178 @@ It is also possible to select Not a legal entity.]]></xs:documentation>
       
   </xs:complexType>
     
+  <xs:complexType name="configurationTemplate">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="description" type="xs:string"/>
+            
+      <xs:element name="formModel">
+                
+        <xs:complexType>
+                    
+          <xs:sequence>
+                        
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="entry">
+                            
+              <xs:complexType>
+                                
+                <xs:sequence>
+                                    
+                  <xs:element minOccurs="0" name="key" type="xs:string"/>
+                                    
+                  <xs:element minOccurs="0" name="value" type="xs:anyType"/>
+                                  
+                </xs:sequence>
+                              
+              </xs:complexType>
+                          
+            </xs:element>
+                      
+          </xs:sequence>
+                  
+        </xs:complexType>
+              
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="interoperabilityRecordId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="configurationTemplateBundle">
+        
+    <xs:complexContent>
+            
+      <xs:extension base="bundle">
+                
+        <xs:sequence>
+                    
+          <xs:element minOccurs="0" name="configurationTemplate" type="configurationTemplate"/>
+                  
+        </xs:sequence>
+              
+      </xs:extension>
+          
+    </xs:complexContent>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="configurationTemplateInstance">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="configurationTemplateId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string"/>
+            
+      <xs:element name="payload">
+                
+        <xs:complexType>
+                    
+          <xs:sequence>
+                        
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="entry">
+                            
+              <xs:complexType>
+                                
+                <xs:sequence>
+                                    
+                  <xs:element minOccurs="0" name="key" type="xs:string"/>
+                                    
+                  <xs:element minOccurs="0" name="value" type="xs:anyType"/>
+                                  
+                </xs:sequence>
+                              
+              </xs:complexType>
+                          
+            </xs:element>
+                      
+          </xs:sequence>
+                  
+        </xs:complexType>
+              
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="resourceId" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="configurationTemplateInstanceBundle">
+        
+    <xs:complexContent>
+            
+      <xs:extension base="bundle">
+                
+        <xs:sequence>
+                    
+          <xs:element minOccurs="0" name="configurationTemplateInstance" type="configurationTemplateInstance"/>
+                  
+        </xs:sequence>
+              
+      </xs:extension>
+          
+    </xs:complexContent>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="configurationTemplateInstanceDto">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="configurationTemplateId" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element name="payload">
+                
+        <xs:complexType>
+                    
+          <xs:sequence>
+                        
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="entry">
+                            
+              <xs:complexType>
+                                
+                <xs:sequence>
+                                    
+                  <xs:element minOccurs="0" name="key" type="xs:anyType"/>
+                                    
+                  <xs:element minOccurs="0" name="value" type="xs:anyType"/>
+                                  
+                </xs:sequence>
+                              
+              </xs:complexType>
+                          
+            </xs:element>
+                      
+          </xs:sequence>
+                  
+        </xs:complexType>
+              
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="resourceId" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
   <xs:complexType name="datasource">
         
     <xs:sequence>
@@ -493,13 +817,19 @@ It is also possible to select Not a legal entity.]]></xs:documentation>
             
       <xs:element minOccurs="0" name="id" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Datasource in the context of the EOSC Portal.]]></xs:documentation>
+          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Datasource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
       <xs:element minOccurs="0" name="jurisdiction" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[The property defines the jurisdiction of the users of the data source, based on the vocabulary for this property]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Datasource's original Node]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -660,268 +990,106 @@ Criteria for submitting content to the repository as well as product preparation
       
   </xs:complexType>
     
-  <xs:complexType name="eoscifGuidelines">
+  <xs:complexType name="deployableService">
         
     <xs:sequence>
             
-      <xs:element minOccurs="0" name="label" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="pid" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="semanticRelationship" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="url" type="xs:anyURI"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="emailMessage">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="message" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="recipientEmail" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="senderEmail" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="senderName" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="subject" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="event">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element name="instant" type="xs:long"/>
-            
-      <xs:element minOccurs="0" name="service" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="type" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="user" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="value" type="xs:float"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="extrasMapType">
-        
-    <xs:sequence>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="entry" nillable="true" type="extrasType"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="extrasType">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="key" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="value" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="extrasMapTypeAdapter">
-        
-    <xs:complexContent>
-            
-      <xs:extension base="xmlAdapter">
-                
-        <xs:sequence/>
-              
-      </xs:extension>
-          
-    </xs:complexContent>
-      
-  </xs:complexType>
-    
-  <xs:complexType abstract="true" name="xmlAdapter">
-        
-    <xs:sequence/>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="helpdesk">
-        
-    <xs:sequence>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="agents" nillable="true" type="xs:string"/>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="emails" nillable="true" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="helpdeskType" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="organisation" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="serviceId" type="xs:string"/>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="services" nillable="true" type="xs:string"/>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="signatures" nillable="true" type="xs:string"/>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="supportGroups" nillable="true" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="ticketPreservation" type="xs:boolean"/>
-            
-      <xs:element minOccurs="0" name="webform" type="xs:boolean"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="helpdeskBundle">
-        
-    <xs:complexContent>
-            
-      <xs:extension base="bundle">
-                
-        <xs:sequence>
-                    
-          <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
-                    
-          <xs:element minOccurs="0" name="helpdesk" type="helpdesk"/>
-                  
-        </xs:sequence>
-              
-      </xs:extension>
-          
-    </xs:complexContent>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="interoperabilityRecord">
-        
-    <xs:sequence>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="alternativeIdentifiers" nillable="true" type="alternativeIdentifier">
+      <xs:element minOccurs="0" name="acronym" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[Other types of Identifiers for the specific Service (eg. PID)]]></xs:documentation>
+          <xs:documentation><![CDATA[Acronym of the Resource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
       <xs:element minOccurs="0" name="catalogueId" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[The Catalogue this Interoperability Record is originally registered at.]]></xs:documentation>
-        </xs:annotation>
-      </xs:element>
-            
-      <xs:element minOccurs="0" name="created" type="xs:string">
-        <xs:annotation>
-          <xs:documentation><![CDATA[Time/date the record was created.]]></xs:documentation>
+          <xs:documentation><![CDATA[The Catalogue this Resource is originally registered at.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
       <xs:element maxOccurs="unbounded" minOccurs="0" name="creators" nillable="true" type="creator">
         <xs:annotation>
-          <xs:documentation><![CDATA[The main researchers involved in producing the data, or the authors of the publication, in priority order.
-To supply multiple creators, repeat this property.]]></xs:documentation>
+          <xs:documentation><![CDATA[Creators]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
       <xs:element minOccurs="0" name="description" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[All additional information that does not fit in any of the other categories.
-May be used for technical information.]]></xs:documentation>
-        </xs:annotation>
-      </xs:element>
-            
-      <xs:element minOccurs="0" name="domain" type="xs:string">
-        <xs:annotation>
-          <xs:documentation><![CDATA[Intended Audience for the Guideline.]]></xs:documentation>
-        </xs:annotation>
-      </xs:element>
-            
-      <xs:element minOccurs="0" name="eoscGuidelineType" type="xs:string">
-        <xs:annotation>
-          <xs:documentation><![CDATA[The type of record within the registry]]></xs:documentation>
-        </xs:annotation>
-      </xs:element>
-            
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="eoscIntegrationOptions" nillable="true" type="xs:string">
-        <xs:annotation>
-          <xs:documentation><![CDATA[A short summary of any options to integrate this guideline (if applicable).]]></xs:documentation>
+          <xs:documentation><![CDATA[A high-level description in fairly non-technical terms of a) what the Resource does, functionality it provides
+and Resources it enables to access.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
       <xs:element minOccurs="0" name="id" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[EOSC Interoperability ID (auto-assigned).]]></xs:documentation>
+          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Deployable Service.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element minOccurs="0" name="identifierInfo" type="identifierInfo">
+      <xs:element minOccurs="0" name="lastUpdate" type="xs:dateTime">
         <xs:annotation>
-          <xs:documentation><![CDATA[Interoperability Record Identifier Info]]></xs:documentation>
+          <xs:documentation><![CDATA[Date of the latest update of the Resource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element minOccurs="0" name="providerId" type="xs:string">
+      <xs:element minOccurs="0" name="logo" type="xs:anyURI">
         <xs:annotation>
-          <xs:documentation><![CDATA[The Provider this Interoperability Record is originally registered at.]]></xs:documentation>
+          <xs:documentation><![CDATA[Link to the logo/visual identity of the Resource. The logo will be visible at the Portal.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element name="publicationYear" type="xs:int">
+      <xs:element minOccurs="0" name="name" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[The year when the guideline was or will be made publicly available.  If an embargo period has been in effect,
-use the date when the embargo period ends. In the case of datasets, "publish" is understood to mean making the
-data available on a specific date to the community of researchers. If there is no standard publication year value,
-use the date that would be preferred from a citation perspective.]]></xs:documentation>
+          <xs:documentation><![CDATA[Resource Full Name as assigned by the Provider.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="relatedStandards" nillable="true" type="relatedStandard">
+      <xs:element minOccurs="0" name="node" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[Standards related to the guideline
-This should point out to related standards only when it is a prerequisite/dependency, and likely to influence
-a Provider's design towards interoperability based on the guideline.]]></xs:documentation>
+          <xs:documentation><![CDATA[Resource's original Node]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="resourceTypesInfo" nillable="true" type="resourceTypeInfo">
+      <xs:element minOccurs="0" name="resourceOrganisation" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[Interoperability Record Resource Type Info]]></xs:documentation>
+          <xs:documentation><![CDATA[The name (or abbreviation) of the organisation that manages or delivers the resource, or that coordinates
+resource delivery in a federated scenario.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element maxOccurs="unbounded" minOccurs="0" name="rights" nillable="true" type="right">
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="scientificDomains" nillable="true" type="serviceProviderDomain">
         <xs:annotation>
-          <xs:documentation><![CDATA[Any rights information for this resource. The property may be repeated to record complex rights characteristics.]]></xs:documentation>
+          <xs:documentation><![CDATA[The branch of science, scientific discipline that is related to the Resource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element minOccurs="0" name="status" type="xs:string">
+      <xs:element minOccurs="0" name="softwareLicense" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[Status of the resource.]]></xs:documentation>
+          <xs:documentation><![CDATA[Software/Code license (e.g., MIT, Apache, GPL)]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element minOccurs="0" name="title" type="xs:string">
+      <xs:element minOccurs="0" name="tagline" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[A name or title by which a resource is known. It can be the title of a dataset or the name of a piece of software]]></xs:documentation>
+          <xs:documentation><![CDATA[Short catch-phrase for marketing and advertising purposes. It will be usually displayed close to the Resource
+name and should refer to the main value or purpose of the Resource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
-      <xs:element minOccurs="0" name="updated" type="xs:string">
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="tags" nillable="true" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[Time/date the record was last saved, with or without modifications.]]></xs:documentation>
+          <xs:documentation><![CDATA[Keywords associated to the Resource to simplify search by relevant keywords.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="url" type="xs:anyURI">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The URL where the TOSCA template to deploy this service is stored.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="version" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Version of the Resource.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
           
@@ -1000,6 +1168,263 @@ a Provider's design towards interoperability based on the guideline.]]></xs:docu
       <xs:element minOccurs="0" name="nameType" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[The type of name]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="deployableServiceBundle">
+        
+    <xs:complexContent>
+            
+      <xs:extension base="bundle">
+                
+        <xs:sequence>
+                    
+          <xs:element minOccurs="0" name="auditState" type="xs:string"/>
+                    
+          <xs:element minOccurs="0" name="deployableService" type="deployableService"/>
+                    
+          <xs:element minOccurs="0" name="status" type="xs:string"/>
+                  
+        </xs:sequence>
+              
+      </xs:extension>
+          
+    </xs:complexContent>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="eoscifGuidelines">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="label" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="pid" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="semanticRelationship" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="url" type="xs:anyURI"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="emailMessage">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="message" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="recipientEmail" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="senderEmail" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="senderName" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="subject" type="xs:string"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="event">
+        
+    <xs:sequence>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element name="instant" type="xs:long"/>
+            
+      <xs:element minOccurs="0" name="service" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="type" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="user" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="value" type="xs:float"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="helpdesk">
+        
+    <xs:sequence>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="agents" nillable="true" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="emails" nillable="true" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="helpdeskType" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="organisation" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="serviceId" type="xs:string"/>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="services" nillable="true" type="xs:string"/>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="signatures" nillable="true" type="xs:string"/>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="supportGroups" nillable="true" type="xs:string"/>
+            
+      <xs:element minOccurs="0" name="ticketPreservation" type="xs:boolean"/>
+            
+      <xs:element minOccurs="0" name="webform" type="xs:boolean"/>
+          
+    </xs:sequence>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="helpdeskBundle">
+        
+    <xs:complexContent>
+            
+      <xs:extension base="bundle">
+                
+        <xs:sequence>
+                    
+          <xs:element minOccurs="0" name="helpdesk" type="helpdesk"/>
+                  
+        </xs:sequence>
+              
+      </xs:extension>
+          
+    </xs:complexContent>
+      
+  </xs:complexType>
+    
+  <xs:complexType name="interoperabilityRecord">
+        
+    <xs:sequence>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="alternativeIdentifiers" nillable="true" type="alternativeIdentifier">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Other types of Identifiers for the specific Service (eg. PID)]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The Catalogue this Interoperability Record is originally registered at.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="created" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Time/date the record was created.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="creators" nillable="true" type="creator">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The main researchers involved in producing the data, or the authors of the publication, in priority order.
+To supply multiple creators, repeat this property.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="description" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[All additional information that does not fit in any of the other categories.
+May be used for technical information.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="domain" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Intended Audience for the Guideline.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="eoscGuidelineType" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The type of record within the registry]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="eoscIntegrationOptions" nillable="true" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[A short summary of any options to integrate this guideline (if applicable).]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="id" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[EOSC Interoperability ID (auto-assigned).]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="identifierInfo" type="identifierInfo">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Interoperability Record Identifier Info]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Guideline's original Node]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="providerId" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The Provider this Interoperability Record is originally registered at.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element name="publicationYear" type="xs:int">
+        <xs:annotation>
+          <xs:documentation><![CDATA[The year when the guideline was or will be made publicly available.  If an embargo period has been in effect,
+use the date when the embargo period ends. In the case of datasets, "publish" is understood to mean making the
+data available on a specific date to the community of researchers. If there is no standard publication year value,
+use the date that would be preferred from a citation perspective.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="relatedStandards" nillable="true" type="relatedStandard">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Standards related to the guideline
+This should point out to related standards only when it is a prerequisite/dependency, and likely to influence
+a Provider's design towards interoperability based on the guideline.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="resourceTypesInfo" nillable="true" type="resourceTypeInfo">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Interoperability Record Resource Type Info]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="rights" nillable="true" type="right">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Any rights information for this resource. The property may be repeated to record complex rights characteristics.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="status" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Status of the resource.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="title" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[A name or title by which a resource is known. It can be the title of a dataset or the name of a piece of software]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="updated" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Time/date the record was last saved, with or without modifications.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
           
@@ -1133,11 +1558,15 @@ versions. The record's primary key for locating it in the EOSC-IF database.]]></
         
     <xs:sequence>
             
+      <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
+            
       <xs:element minOccurs="0" name="id" type="xs:string"/>
             
       <xs:element minOccurs="0" name="monitoredBy" type="xs:string"/>
             
       <xs:element maxOccurs="unbounded" minOccurs="0" name="monitoringGroups" nillable="true" type="monitoringGroup"/>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string"/>
             
       <xs:element minOccurs="0" name="serviceId" type="xs:string"/>
           
@@ -1166,8 +1595,6 @@ versions. The record's primary key for locating it in the EOSC-IF database.]]></
       <xs:extension base="bundle">
                 
         <xs:sequence>
-                    
-          <xs:element minOccurs="0" name="catalogueId" type="xs:string"/>
                     
           <xs:element minOccurs="0" name="monitoring" type="monitoring"/>
                   
@@ -1249,7 +1676,7 @@ If (1) - name of the research infrastructure, If (2) - name of the hosting organ
             
       <xs:element minOccurs="0" name="id" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Provider in the context of the EOSC Portal.]]></xs:documentation>
+          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Provider.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -1317,6 +1744,12 @@ For embedded providers (2) - legal status of the hosting legal entity. It is als
       <xs:element maxOccurs="unbounded" minOccurs="0" name="networks" nillable="true" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[Providers that are members of networks should list those networks here.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Provider's original Node]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -1474,6 +1907,8 @@ For embedded providers (2) - legal status of the hosting legal entity. It is als
             
       <xs:element maxOccurs="unbounded" minOccurs="0" name="interoperabilityRecordIds" nillable="true" type="xs:string"/>
             
+      <xs:element minOccurs="0" name="node" type="xs:string"/>
+            
       <xs:element minOccurs="0" name="resourceId" type="xs:string"/>
           
     </xs:sequence>
@@ -1610,7 +2045,7 @@ infrastructures.]]></xs:documentation>
             
       <xs:element minOccurs="0" name="id" type="xs:string">
         <xs:annotation>
-          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Resource in the context of the EOSC Portal.]]></xs:documentation>
+          <xs:documentation><![CDATA[A persistent identifier, a unique reference to the Service.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -1665,6 +2100,12 @@ infrastructures.]]></xs:documentation>
       <xs:element minOccurs="0" name="name" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[Resource Full Name as assigned by the Provider.]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Service's original Node]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
@@ -2120,6 +2561,12 @@ infrastructures.]]></xs:documentation>
         </xs:annotation>
       </xs:element>
             
+      <xs:element minOccurs="0" name="node" type="xs:string">
+        <xs:annotation>
+          <xs:documentation><![CDATA[Training Resource's original node]]></xs:documentation>
+        </xs:annotation>
+      </xs:element>
+            
       <xs:element maxOccurs="unbounded" minOccurs="0" name="qualifications" nillable="true" type="xs:string">
         <xs:annotation>
           <xs:documentation><![CDATA[Identification of certification, accreditation or badge obtained with course or learning resource.]]></xs:documentation>
@@ -2292,144 +2739,6 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
       
   </xs:complexType>
     
-  <xs:complexType name="configurationTemplate">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="description" type="xs:string"/>
-            
-      <xs:element name="formModel">
-                
-        <xs:complexType>
-                    
-          <xs:sequence>
-                        
-            <xs:element maxOccurs="unbounded" minOccurs="0" name="entry">
-                            
-              <xs:complexType>
-                                
-                <xs:sequence>
-                                    
-                  <xs:element minOccurs="0" name="key" type="xs:anyType"/>
-                                    
-                  <xs:element minOccurs="0" name="value" type="xs:anyType"/>
-                                  
-                </xs:sequence>
-                              
-              </xs:complexType>
-                          
-            </xs:element>
-                      
-          </xs:sequence>
-                  
-        </xs:complexType>
-              
-      </xs:element>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="interoperabilityRecordId" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="name" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="configurationTemplateBundle">
-        
-    <xs:complexContent>
-            
-      <xs:extension base="bundle">
-                
-        <xs:sequence>
-                    
-          <xs:element minOccurs="0" name="configurationTemplate" type="configurationTemplate"/>
-                  
-        </xs:sequence>
-              
-      </xs:extension>
-          
-    </xs:complexContent>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="configurationTemplateInstance">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="configurationTemplateId" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="payload" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="resourceId" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="configurationTemplateInstanceBundle">
-        
-    <xs:complexContent>
-            
-      <xs:extension base="bundle">
-                
-        <xs:sequence>
-                    
-          <xs:element minOccurs="0" name="configurationTemplateInstance" type="configurationTemplateInstance"/>
-                  
-        </xs:sequence>
-              
-      </xs:extension>
-          
-    </xs:complexContent>
-      
-  </xs:complexType>
-    
-  <xs:complexType name="configurationTemplateInstanceDto">
-        
-    <xs:sequence>
-            
-      <xs:element minOccurs="0" name="configurationTemplateId" type="xs:string"/>
-            
-      <xs:element minOccurs="0" name="id" type="xs:string"/>
-            
-      <xs:element name="payload">
-                
-        <xs:complexType>
-                    
-          <xs:sequence>
-                        
-            <xs:element maxOccurs="unbounded" minOccurs="0" name="entry">
-                            
-              <xs:complexType>
-                                
-                <xs:sequence>
-                                    
-                  <xs:element minOccurs="0" name="key" type="xs:anyType"/>
-                                    
-                  <xs:element minOccurs="0" name="value" type="xs:anyType"/>
-                                  
-                </xs:sequence>
-                              
-              </xs:complexType>
-                          
-            </xs:element>
-                      
-          </xs:sequence>
-                  
-        </xs:complexType>
-              
-      </xs:element>
-            
-      <xs:element minOccurs="0" name="resourceId" type="xs:string"/>
-          
-    </xs:sequence>
-      
-  </xs:complexType>
-    
   <xs:simpleType name="userActionType">
         
     <xs:restriction base="xs:string">
@@ -2457,6 +2766,18 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
       <xs:enumeration value="TICKET_REDIRECTION"/>
             
       <xs:enumeration value="DIRECT_USAGE"/>
+          
+    </xs:restriction>
+      
+  </xs:simpleType>
+    
+  <xs:simpleType name="linkedResourceType">
+        
+    <xs:restriction base="xs:string">
+            
+      <xs:enumeration value="GUIDELINE"/>
+            
+      <xs:enumeration value="SERVICE"/>
           
     </xs:restriction>
       
@@ -2523,6 +2844,8 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
       <xs:enumeration value="ABBREVIATION"/>
             
       <xs:enumeration value="NAME"/>
+            
+      <xs:enumeration value="NODE"/>
             
       <xs:enumeration value="RESOURCE_ORGANISATION"/>
             
@@ -2638,6 +2961,8 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
         
     <xs:restriction base="xs:string">
             
+      <xs:enumeration value="NODE"/>
+            
       <xs:enumeration value="PROVIDER_AREA_OF_ACTIVITY"/>
             
       <xs:enumeration value="PROVIDER_ESFRI_TYPE"/>
@@ -2712,6 +3037,8 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
             
       <xs:enumeration value="INTEROPERABILITY_RECORD_STATE"/>
             
+      <xs:enumeration value="ADAPTER_STATE"/>
+            
       <xs:enumeration value="DS_RESEARCH_ENTITY_TYPE"/>
             
       <xs:enumeration value="DS_PERSISTENT_IDENTITY_SCHEME"/>
@@ -2733,6 +3060,10 @@ that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).]]></xs:document
       <xs:enumeration value="TR_CONTENT_RESOURCE_TYPE"/>
             
       <xs:enumeration value="TR_QUALIFICATION"/>
+            
+      <xs:enumeration value="ADAPTER_PROGRAMMING_LANGUAGE"/>
+            
+      <xs:enumeration value="ADAPTER_LICENSE"/>
             
       <xs:enumeration value="MONITORING_MONITORED_BY"/>
             

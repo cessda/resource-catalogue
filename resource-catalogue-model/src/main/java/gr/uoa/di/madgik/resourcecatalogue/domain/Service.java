@@ -23,10 +23,6 @@ import gr.uoa.di.madgik.resourcecatalogue.annotation.FieldValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.GeoLocationVocValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.VocabularyValidation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlElementWrapper;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
 
 import java.net.URL;
 import java.util.Arrays;
@@ -34,15 +30,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class Service implements Identifiable {
 
     // Basic Information
     /**
-     * A persistent identifier, a unique reference to the Resource in the context of the EOSC Portal.
+     * A persistent identifier, a unique reference to the Service.
      */
-    @XmlElement
     @Schema(example = "(required on PUT only)")
     @FieldValidation
     private String id;
@@ -50,32 +43,35 @@ public class Service implements Identifiable {
     /**
      * An abbreviation of the Resource Name as assigned by the Provider
      */
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String abbreviation;
 
     /**
      * Resource Full Name as assigned by the Provider.
      */
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String name;
 
     /**
+     * Service's original Node
+     */
+    @Schema
+    @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
+    @VocabularyValidation(type = Vocabulary.Type.NODE)
+    private String node;
+
+    /**
      * The name (or abbreviation) of the organisation that manages or delivers the resource, or that coordinates resource delivery in a federated scenario.
      */
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Provider.class)
     private String resourceOrganisation;
 
     /**
      * The name(s) (or abbreviation(s)) of Provider(s) that manage or deliver the Resource in federated scenarios.
      */
-    @XmlElementWrapper(name = "resourceProviders")
-    @XmlElement(name = "resourceProvider")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Provider.class)
     private List<String> resourceProviders;
@@ -83,7 +79,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with information about the Resource usually hosted and maintained by the Provider.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "https://example.com")
     @FieldValidation
     private URL webpage;
@@ -91,8 +86,6 @@ public class Service implements Identifiable {
     /**
      * Other types of Identifiers for the specific Service (eg. PID)
      */
-    @XmlElementWrapper(name = "alternativeIdentifiers")
-    @XmlElement(name = "alternativeIdentifier")
     @Schema
     @FieldValidation(nullable = true)
     private List<AlternativeIdentifier> alternativeIdentifiers;
@@ -105,7 +98,6 @@ public class Service implements Identifiable {
      * (e.g., eliminate undesired outcomes, obstacles or risks) or producing gains (e.g. increased performance, social gains, positive emotions or cost saving),
      * c) list of customers, communities, users, etc. using the Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String description;
@@ -113,7 +105,6 @@ public class Service implements Identifiable {
     /**
      * Short catch-phrase for marketing and advertising purposes. It will be usually displayed close to the Resource name and should refer to the main value or purpose of the Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String tagline;
@@ -121,7 +112,6 @@ public class Service implements Identifiable {
     /**
      * Link to the logo/visual identity of the Resource. The logo will be visible at the Portal. If there is no specific logo for the Resource the logo of the Provider may be used.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "https://example.com")
     @FieldValidation
     private URL logo;
@@ -129,8 +119,6 @@ public class Service implements Identifiable {
     /**
      * Link to video, slideshow, photos, screenshots with details of the Provider.
      */
-    @XmlElementWrapper(name = "multimedia")
-    @XmlElement(name = "multimedia")
     @Schema
     @FieldValidation(nullable = true)
     private List<MultimediaPair> multimedia;
@@ -138,8 +126,6 @@ public class Service implements Identifiable {
     /**
      * Link to use cases supported by this Resource.
      */
-    @XmlElementWrapper(name = "useCases")
-    @XmlElement(name = "useCase")
     @Schema
     @FieldValidation(nullable = true)
     private List<UseCasesPair> useCases;
@@ -149,8 +135,6 @@ public class Service implements Identifiable {
     /**
      * The branch of science, scientific discipline that is related to the Resource.
      */
-    @XmlElementWrapper(name = "scientificDomains", required = true)
-    @XmlElement(name = "scientificDomain")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<ServiceProviderDomain> scientificDomains;
@@ -158,8 +142,6 @@ public class Service implements Identifiable {
     /**
      * A named group of Resources that offer access to the same type of Resources.
      */
-    @XmlElementWrapper(name = "categories", required = true)
-    @XmlElement(name = "category")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<ServiceCategory> categories;
@@ -167,8 +149,6 @@ public class Service implements Identifiable {
     /**
      * Type of users/customers that commissions a Provider to deliver a Resource.
      */
-    @XmlElementWrapper(name = "targetUsers", required = true)
-    @XmlElement(name = "targetUser")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TARGET_USER)
@@ -177,8 +157,6 @@ public class Service implements Identifiable {
     /**
      * The way a user can access the service/resource (Remote, Physical, Virtual, etc.).
      */
-    @XmlElementWrapper(name = "accessTypes")
-    @XmlElement(name = "accessType")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.ACCESS_TYPE)
@@ -187,8 +165,6 @@ public class Service implements Identifiable {
     /**
      * Eligibility/criteria for granting access to users (excellence-based, free-conditionally, free etc.).
      */
-    @XmlElementWrapper(name = "accessModes")
-    @XmlElement(name = "accessMode")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.ACCESS_MODE)
@@ -197,8 +173,6 @@ public class Service implements Identifiable {
     /**
      * Keywords associated to the Resource to simplify search by relevant keywords.
      */
-    @XmlElementWrapper(name = "tags")
-    @XmlElement(name = "tag")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> tags;
@@ -207,7 +181,6 @@ public class Service implements Identifiable {
      * Does Service consist a generic service or resource bringing significant value to two or more research
      * infrastructures.
      */
-    @XmlElement()
     @Schema
     @FieldValidation(nullable = true)
     private Boolean horizontalService;
@@ -215,8 +188,6 @@ public class Service implements Identifiable {
     /**
      * A named group of Resources that offer access to the same type of Resources.
      */
-    @XmlElementWrapper(name = "serviceCategories")
-    @XmlElement(name = "serviceCategory")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.SERVICE_CATEGORY)
@@ -225,8 +196,6 @@ public class Service implements Identifiable {
     /**
      * Placement of the Service in the different sections of the EOSC Marketplace.
      */
-    @XmlElementWrapper(name = "marketplaceLocations")
-    @XmlElement(name = "marketplaceLocation")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.MARKETPLACE_LOCATION)
@@ -237,8 +206,6 @@ public class Service implements Identifiable {
     /**
      * Locations where the Resource is offered.
      */
-    @XmlElementWrapper(name = "geographicalAvailabilities", required = true)
-    @XmlElement(name = "geographicalAvailability")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @GeoLocationVocValidation(region = Vocabulary.Type.REGION, country = Vocabulary.Type.COUNTRY)
@@ -247,8 +214,6 @@ public class Service implements Identifiable {
     /**
      * Languages of the (user interface of the) Resource.
      */
-    @XmlElementWrapper(name = "languageAvailabilities", required = true)
-    @XmlElement(name = "languageAvailability")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.LANGUAGE)
@@ -259,8 +224,6 @@ public class Service implements Identifiable {
     /**
      * List of geographic locations where data, samples, etc. are stored and processed.
      */
-    @XmlElementWrapper(name = "resourceGeographicLocations")
-    @XmlElement(name = "resourceGeographicLocation")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.COUNTRY)
@@ -271,7 +234,6 @@ public class Service implements Identifiable {
     /**
      * Service's Main Contact/Resource Owner info.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private ServiceMainContact mainContact;
@@ -279,8 +241,6 @@ public class Service implements Identifiable {
     /**
      * List of the Service's Public Contacts info.
      */
-    @XmlElementWrapper(name = "publicContacts", required = true)
-    @XmlElement(name = "publicContact")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<ServicePublicContact> publicContacts;
@@ -288,7 +248,6 @@ public class Service implements Identifiable {
     /**
      * The email to ask more information from the Provider about this Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @EmailValidation
     private String helpdeskEmail;
@@ -296,7 +255,6 @@ public class Service implements Identifiable {
     /**
      * The email to contact the Provider for critical security issues about this Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @EmailValidation
     private String securityContactEmail;
@@ -306,7 +264,6 @@ public class Service implements Identifiable {
     /**
      * The Technology Readiness Level of the Resource (to be further updated in the context of the EOSC).
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TRL)
@@ -315,7 +272,6 @@ public class Service implements Identifiable {
     /**
      * Phase of the Resource life-cycle.
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.LIFE_CYCLE_STATUS)
@@ -324,8 +280,6 @@ public class Service implements Identifiable {
     /**
      * List of certifications obtained for the Resource (including the certification body).
      */
-    @XmlElementWrapper(name = "certifications")
-    @XmlElement(name = "certification")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> certifications;
@@ -333,8 +287,6 @@ public class Service implements Identifiable {
     /**
      * List of standards supported by the Resource.
      */
-    @XmlElementWrapper(name = "standards")
-    @XmlElement(name = "standard")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> standards;
@@ -342,8 +294,6 @@ public class Service implements Identifiable {
     /**
      * List of open source technologies supported by the Resource.
      */
-    @XmlElementWrapper(name = "openSourceTechnologies")
-    @XmlElement(name = "openSourceTechnology")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> openSourceTechnologies;
@@ -351,7 +301,6 @@ public class Service implements Identifiable {
     /**
      * Version of the Resource that is in force.
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private String version;
@@ -359,7 +308,6 @@ public class Service implements Identifiable {
     /**
      * Date of the latest update of the Resource.
      */
-    @XmlElement
     @Schema(example = "2020-01-01")
     @FieldValidation(nullable = true)
     private Date lastUpdate;
@@ -367,7 +315,6 @@ public class Service implements Identifiable {
     /**
      * Summary of the Resource features updated from the previous version.
      */
-    @XmlElementWrapper(name = "changeLog")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> changeLog;
@@ -377,8 +324,6 @@ public class Service implements Identifiable {
     /**
      * List of other Resources required to use this Resource.
      */
-    @XmlElementWrapper(name = "requiredResources")
-    @XmlElement(name = "requiredResource")
     @Schema
     @FieldValidation(nullable = true, containsId = true, containsResourceId = true)
     private List<String> requiredResources;
@@ -386,8 +331,6 @@ public class Service implements Identifiable {
     /**
      * List of other Resources that are commonly used with this Resource.
      */
-    @XmlElementWrapper(name = "relatedResources")
-    @XmlElement(name = "relatedResource")
     @Schema
     @FieldValidation(nullable = true, containsId = true, containsResourceId = true)
     private List<String> relatedResources;
@@ -395,8 +338,6 @@ public class Service implements Identifiable {
     /**
      * List of suites or thematic platforms in which the Resource is engaged or Providers (Provider groups) contributing to this Resource.
      */
-    @XmlElementWrapper(name = "relatedPlatforms")
-    @XmlElement(name = "relatedPlatform")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.RELATED_PLATFORM)
@@ -405,9 +346,8 @@ public class Service implements Identifiable {
     /**
      * The Catalogue this Resource is originally registered at.
      */
-    @XmlElement
-    @Schema
-    @FieldValidation(nullable = true, containsId = true, idClass = Catalogue.class)
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    @FieldValidation(containsId = true, idClass = Catalogue.class)
     private String catalogueId;
 
 
@@ -415,7 +355,6 @@ public class Service implements Identifiable {
     /**
      * Name of the funding body that supported the development and/or operation of the Resource.
      */
-    @XmlElementWrapper(name = "fundingBody")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.FUNDING_BODY)
@@ -424,8 +363,6 @@ public class Service implements Identifiable {
     /**
      * Name of the funding program that supported the development and/or operation of the Resource.
      */
-    @XmlElementWrapper(name = "fundingPrograms")
-    @XmlElement(name = "fundingProgram")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.FUNDING_PROGRAM)
@@ -434,8 +371,6 @@ public class Service implements Identifiable {
     /**
      * Name of the project that supported the development and/or operation of the Resource.
      */
-    @XmlElementWrapper(name = "grantProjectNames")
-    @XmlElement(name = "grantProjectName")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> grantProjectNames;
@@ -445,7 +380,6 @@ public class Service implements Identifiable {
     /**
      * The URL to a webpage to ask more information from the Provider about this Resource.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL helpdeskPage;
@@ -453,7 +387,6 @@ public class Service implements Identifiable {
     /**
      * Link to the Resource user manual and documentation.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL userManual;
@@ -461,7 +394,6 @@ public class Service implements Identifiable {
     /**
      * Webpage describing the rules, Resource conditions and usage policy which one must agree to abide by in order to use the Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "https://example.com")
     @FieldValidation
     private URL termsOfUse;
@@ -469,7 +401,6 @@ public class Service implements Identifiable {
     /**
      * Link to the privacy policy applicable to the Resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED, example = "https://example.com")
     @FieldValidation
     private URL privacyPolicy;
@@ -477,7 +408,6 @@ public class Service implements Identifiable {
     /**
      * Information about the access policies that apply.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL accessPolicy;
@@ -485,7 +415,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with the information about the levels of performance that a Provider is expected to deliver.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL resourceLevel;
@@ -493,7 +422,6 @@ public class Service implements Identifiable {
     /**
      * Webpage to training information on the Resource.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL trainingInformation;
@@ -501,7 +429,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with monitoring information about this Resource.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL statusMonitoring;
@@ -509,7 +436,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with information about planned maintenance windows for this Resource.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL maintenance;
@@ -519,7 +445,6 @@ public class Service implements Identifiable {
     /**
      * Information on the order type (requires an ordering procedure, or no ordering and if fully open or requires authentication).
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.ORDER_TYPE)
@@ -528,7 +453,6 @@ public class Service implements Identifiable {
     /**
      * Webpage through which an order for the Resource can be placed.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL order;
@@ -538,7 +462,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with the supported payment models and restrictions that apply to each of them.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL paymentModel;
@@ -546,7 +469,6 @@ public class Service implements Identifiable {
     /**
      * Webpage with the information on the price scheme for this Resource in case the customer is charged for.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL pricing;
@@ -555,10 +477,11 @@ public class Service implements Identifiable {
         // No arg constructor
     }
 
-    public Service(String id, String abbreviation, String name, String resourceOrganisation, List<String> resourceProviders, URL webpage, List<AlternativeIdentifier> alternativeIdentifiers, String description, String tagline, URL logo, List<MultimediaPair> multimedia, List<UseCasesPair> useCases, List<ServiceProviderDomain> scientificDomains, List<ServiceCategory> categories, List<String> targetUsers, List<String> accessTypes, List<String> accessModes, List<String> tags, Boolean horizontalService, List<String> serviceCategories, List<String> marketplaceLocations, List<String> geographicalAvailabilities, List<String> languageAvailabilities, List<String> resourceGeographicLocations, ServiceMainContact mainContact, List<ServicePublicContact> publicContacts, String helpdeskEmail, String securityContactEmail, String trl, String lifeCycleStatus, List<String> certifications, List<String> standards, List<String> openSourceTechnologies, String version, Date lastUpdate, List<String> changeLog, List<String> requiredResources, List<String> relatedResources, List<String> relatedPlatforms, String catalogueId, List<String> fundingBody, List<String> fundingPrograms, List<String> grantProjectNames, URL helpdeskPage, URL userManual, URL termsOfUse, URL privacyPolicy, URL accessPolicy, URL resourceLevel, URL trainingInformation, URL statusMonitoring, URL maintenance, String orderType, URL order, URL paymentModel, URL pricing) {
+    public Service(String id, String abbreviation, String name, String node, String resourceOrganisation, List<String> resourceProviders, URL webpage, List<AlternativeIdentifier> alternativeIdentifiers, String description, String tagline, URL logo, List<MultimediaPair> multimedia, List<UseCasesPair> useCases, List<ServiceProviderDomain> scientificDomains, List<ServiceCategory> categories, List<String> targetUsers, List<String> accessTypes, List<String> accessModes, List<String> tags, Boolean horizontalService, List<String> serviceCategories, List<String> marketplaceLocations, List<String> geographicalAvailabilities, List<String> languageAvailabilities, List<String> resourceGeographicLocations, ServiceMainContact mainContact, List<ServicePublicContact> publicContacts, String helpdeskEmail, String securityContactEmail, String trl, String lifeCycleStatus, List<String> certifications, List<String> standards, List<String> openSourceTechnologies, String version, Date lastUpdate, List<String> changeLog, List<String> requiredResources, List<String> relatedResources, List<String> relatedPlatforms, String catalogueId, List<String> fundingBody, List<String> fundingPrograms, List<String> grantProjectNames, URL helpdeskPage, URL userManual, URL termsOfUse, URL privacyPolicy, URL accessPolicy, URL resourceLevel, URL trainingInformation, URL statusMonitoring, URL maintenance, String orderType, URL order, URL paymentModel, URL pricing) {
         this.id = id;
         this.abbreviation = abbreviation;
         this.name = name;
+        this.node = node;
         this.resourceOrganisation = resourceOrganisation;
         this.resourceProviders = resourceProviders;
         this.webpage = webpage;
@@ -619,12 +542,12 @@ public class Service implements Identifiable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Service service = (Service) o;
-        return Objects.equals(id, service.id) && Objects.equals(abbreviation, service.abbreviation) && Objects.equals(name, service.name) && Objects.equals(resourceOrganisation, service.resourceOrganisation) && Objects.equals(resourceProviders, service.resourceProviders) && Objects.equals(webpage, service.webpage) && Objects.equals(alternativeIdentifiers, service.alternativeIdentifiers) && Objects.equals(description, service.description) && Objects.equals(tagline, service.tagline) && Objects.equals(logo, service.logo) && Objects.equals(multimedia, service.multimedia) && Objects.equals(useCases, service.useCases) && Objects.equals(scientificDomains, service.scientificDomains) && Objects.equals(categories, service.categories) && Objects.equals(targetUsers, service.targetUsers) && Objects.equals(accessTypes, service.accessTypes) && Objects.equals(accessModes, service.accessModes) && Objects.equals(tags, service.tags) && Objects.equals(horizontalService, service.horizontalService) && Objects.equals(serviceCategories, service.serviceCategories) && Objects.equals(marketplaceLocations, service.marketplaceLocations) && Objects.equals(geographicalAvailabilities, service.geographicalAvailabilities) && Objects.equals(languageAvailabilities, service.languageAvailabilities) && Objects.equals(resourceGeographicLocations, service.resourceGeographicLocations) && Objects.equals(mainContact, service.mainContact) && Objects.equals(publicContacts, service.publicContacts) && Objects.equals(helpdeskEmail, service.helpdeskEmail) && Objects.equals(securityContactEmail, service.securityContactEmail) && Objects.equals(trl, service.trl) && Objects.equals(lifeCycleStatus, service.lifeCycleStatus) && Objects.equals(certifications, service.certifications) && Objects.equals(standards, service.standards) && Objects.equals(openSourceTechnologies, service.openSourceTechnologies) && Objects.equals(version, service.version) && Objects.equals(lastUpdate, service.lastUpdate) && Objects.equals(changeLog, service.changeLog) && Objects.equals(requiredResources, service.requiredResources) && Objects.equals(relatedResources, service.relatedResources) && Objects.equals(relatedPlatforms, service.relatedPlatforms) && Objects.equals(catalogueId, service.catalogueId) && Objects.equals(fundingBody, service.fundingBody) && Objects.equals(fundingPrograms, service.fundingPrograms) && Objects.equals(grantProjectNames, service.grantProjectNames) && Objects.equals(helpdeskPage, service.helpdeskPage) && Objects.equals(userManual, service.userManual) && Objects.equals(termsOfUse, service.termsOfUse) && Objects.equals(privacyPolicy, service.privacyPolicy) && Objects.equals(accessPolicy, service.accessPolicy) && Objects.equals(resourceLevel, service.resourceLevel) && Objects.equals(trainingInformation, service.trainingInformation) && Objects.equals(statusMonitoring, service.statusMonitoring) && Objects.equals(maintenance, service.maintenance) && Objects.equals(orderType, service.orderType) && Objects.equals(order, service.order) && Objects.equals(paymentModel, service.paymentModel) && Objects.equals(pricing, service.pricing);
+        return Objects.equals(id, service.id) && Objects.equals(abbreviation, service.abbreviation) && Objects.equals(name, service.name) && Objects.equals(node, service.node) && Objects.equals(resourceOrganisation, service.resourceOrganisation) && Objects.equals(resourceProviders, service.resourceProviders) && Objects.equals(webpage, service.webpage) && Objects.equals(alternativeIdentifiers, service.alternativeIdentifiers) && Objects.equals(description, service.description) && Objects.equals(tagline, service.tagline) && Objects.equals(logo, service.logo) && Objects.equals(multimedia, service.multimedia) && Objects.equals(useCases, service.useCases) && Objects.equals(scientificDomains, service.scientificDomains) && Objects.equals(categories, service.categories) && Objects.equals(targetUsers, service.targetUsers) && Objects.equals(accessTypes, service.accessTypes) && Objects.equals(accessModes, service.accessModes) && Objects.equals(tags, service.tags) && Objects.equals(horizontalService, service.horizontalService) && Objects.equals(serviceCategories, service.serviceCategories) && Objects.equals(marketplaceLocations, service.marketplaceLocations) && Objects.equals(geographicalAvailabilities, service.geographicalAvailabilities) && Objects.equals(languageAvailabilities, service.languageAvailabilities) && Objects.equals(resourceGeographicLocations, service.resourceGeographicLocations) && Objects.equals(mainContact, service.mainContact) && Objects.equals(publicContacts, service.publicContacts) && Objects.equals(helpdeskEmail, service.helpdeskEmail) && Objects.equals(securityContactEmail, service.securityContactEmail) && Objects.equals(trl, service.trl) && Objects.equals(lifeCycleStatus, service.lifeCycleStatus) && Objects.equals(certifications, service.certifications) && Objects.equals(standards, service.standards) && Objects.equals(openSourceTechnologies, service.openSourceTechnologies) && Objects.equals(version, service.version) && Objects.equals(lastUpdate, service.lastUpdate) && Objects.equals(changeLog, service.changeLog) && Objects.equals(requiredResources, service.requiredResources) && Objects.equals(relatedResources, service.relatedResources) && Objects.equals(relatedPlatforms, service.relatedPlatforms) && Objects.equals(catalogueId, service.catalogueId) && Objects.equals(fundingBody, service.fundingBody) && Objects.equals(fundingPrograms, service.fundingPrograms) && Objects.equals(grantProjectNames, service.grantProjectNames) && Objects.equals(helpdeskPage, service.helpdeskPage) && Objects.equals(userManual, service.userManual) && Objects.equals(termsOfUse, service.termsOfUse) && Objects.equals(privacyPolicy, service.privacyPolicy) && Objects.equals(accessPolicy, service.accessPolicy) && Objects.equals(resourceLevel, service.resourceLevel) && Objects.equals(trainingInformation, service.trainingInformation) && Objects.equals(statusMonitoring, service.statusMonitoring) && Objects.equals(maintenance, service.maintenance) && Objects.equals(orderType, service.orderType) && Objects.equals(order, service.order) && Objects.equals(paymentModel, service.paymentModel) && Objects.equals(pricing, service.pricing);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, abbreviation, name, resourceOrganisation, resourceProviders, webpage, alternativeIdentifiers, description, tagline, logo, multimedia, useCases, scientificDomains, categories, targetUsers, accessTypes, accessModes, tags, horizontalService, serviceCategories, marketplaceLocations, geographicalAvailabilities, languageAvailabilities, resourceGeographicLocations, mainContact, publicContacts, helpdeskEmail, securityContactEmail, trl, lifeCycleStatus, certifications, standards, openSourceTechnologies, version, lastUpdate, changeLog, requiredResources, relatedResources, relatedPlatforms, catalogueId, fundingBody, fundingPrograms, grantProjectNames, helpdeskPage, userManual, termsOfUse, privacyPolicy, accessPolicy, resourceLevel, trainingInformation, statusMonitoring, maintenance, orderType, order, paymentModel, pricing);
+        return Objects.hash(id, abbreviation, name, node, resourceOrganisation, resourceProviders, webpage, alternativeIdentifiers, description, tagline, logo, multimedia, useCases, scientificDomains, categories, targetUsers, accessTypes, accessModes, tags, horizontalService, serviceCategories, marketplaceLocations, geographicalAvailabilities, languageAvailabilities, resourceGeographicLocations, mainContact, publicContacts, helpdeskEmail, securityContactEmail, trl, lifeCycleStatus, certifications, standards, openSourceTechnologies, version, lastUpdate, changeLog, requiredResources, relatedResources, relatedPlatforms, catalogueId, fundingBody, fundingPrograms, grantProjectNames, helpdeskPage, userManual, termsOfUse, privacyPolicy, accessPolicy, resourceLevel, trainingInformation, statusMonitoring, maintenance, orderType, order, paymentModel, pricing);
     }
 
     @Override
@@ -660,6 +583,7 @@ public class Service implements Identifiable {
         ID("id"),
         ABBREVIATION("abbreviation"),
         NAME("name"),
+        NODE("node"),
         RESOURCE_ORGANISATION("resourceOrganisation"),
         RESOURCE_PROVIDERS("resourceProviders"),
         WEBPAGE("webpage"),
@@ -760,6 +684,14 @@ public class Service implements Identifiable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public String getResourceOrganisation() {

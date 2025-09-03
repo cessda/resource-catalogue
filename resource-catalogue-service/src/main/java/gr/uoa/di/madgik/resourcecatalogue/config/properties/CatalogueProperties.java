@@ -106,16 +106,24 @@ public class CatalogueProperties {
     public CatalogueProperties() {
     }
 
-    //TODO: enable specific or all property changes and reloads
     @EventListener
     public void onPropertyChange(PropertyChangeEvent event) {
-        if ("CATALOGUE_ADMINS".equals(event.getPropertyName())) {
+        if ("catalogue.admins".equals(event.getPropertyName())) {
             String newAdmins = event.getNewValue();
             if (newAdmins != null) {
                 setAdmins(Arrays.stream(newAdmins.split(","))
                         .map(String::trim)
                         .collect(Collectors.toSet()));
                 logger.info("Admins updated to: {}", this.admins);
+            }
+        }
+        if ("catalogue.onboarding-team".equals(event.getPropertyName())) {
+            String newOnboardingTeam = event.getNewValue();
+            if (newOnboardingTeam != null) {
+                setOnboardingTeam(Arrays.stream(newOnboardingTeam.split(","))
+                        .map(String::trim)
+                        .collect(Collectors.toSet()));
+                logger.info("Onboarding Team updated to: {}", this.onboardingTeam);
             }
         }
     }

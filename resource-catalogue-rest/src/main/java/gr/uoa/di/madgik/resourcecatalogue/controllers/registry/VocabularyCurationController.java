@@ -16,11 +16,12 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers.registry;
 
+import gr.uoa.di.madgik.registry.annotation.BrowseParameters;
 import gr.uoa.di.madgik.registry.domain.FacetFilter;
 import gr.uoa.di.madgik.registry.domain.Paging;
-import gr.uoa.di.madgik.registry.annotation.BrowseParameters;
 import gr.uoa.di.madgik.resourcecatalogue.domain.VocabularyCuration;
 import gr.uoa.di.madgik.resourcecatalogue.service.VocabularyCurationService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Set;
 
+@Hidden
 @Profile("beyond")
 @RestController
 @RequestMapping("vocabularyCuration")
@@ -61,7 +63,7 @@ public class VocabularyCurationController extends ResourceController<VocabularyC
 
     @Override
 //    @Operation(summary = "Creates a new Vocabulary Curation Request.")
-    @PostMapping(produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @PostMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<VocabularyCuration> add(@RequestBody VocabularyCuration vocabularyCuration, @Parameter(hidden = true) Authentication auth) {
         ResponseEntity<VocabularyCuration> ret = super.add(vocabularyCuration, auth);
         logger.info("Adding new Vocabulary Curation");
@@ -79,7 +81,7 @@ public class VocabularyCurationController extends ResourceController<VocabularyC
 
     //    @Operation(summary = "Filter a list of Vocabulary Curation Requests based on a set of filters or get a list of all Vocabulary Curation Requests in the Catalogue.")
     @BrowseParameters
-    @GetMapping(path = "vocabularyCurationRequests/all", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @GetMapping(path = "vocabularyCurationRequests/all", produces = {MediaType.APPLICATION_JSON_VALUE})
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
     public ResponseEntity<Paging<VocabularyCuration>> getAllVocabularyCurationRequests(@Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> allRequestParams, @RequestParam(required = false) Set<String> status,
                                                                                        @RequestParam(required = false) Set<String> vocabulary, @Parameter(hidden = true) Authentication authentication) {
@@ -87,7 +89,7 @@ public class VocabularyCurationController extends ResourceController<VocabularyC
         return ResponseEntity.ok(vocabularyCurationService.getAllVocabularyCurationRequests(ff, authentication));
     }
 
-    @PutMapping(path = "approveOrRejectVocabularyCuration", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @PutMapping(path = "approveOrRejectVocabularyCuration", produces = {MediaType.APPLICATION_JSON_VALUE})
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
     public void approveOrRejectVocabularyCuration(@RequestBody VocabularyCuration vocabularyCuration, @RequestParam boolean approved,
                                                   @RequestParam(required = false) String rejectionReason, @Parameter(hidden = true) Authentication authentication) {
@@ -100,12 +102,5 @@ public class VocabularyCurationController extends ResourceController<VocabularyC
     public ResponseEntity<VocabularyCuration> delete(@RequestBody VocabularyCuration vocabularyCuration,
                                                      @Parameter(hidden = true) Authentication auth) {
         return super.delete(vocabularyCuration, auth);
-    }
-
-    @Override
-    @DeleteMapping(path = "all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<List<VocabularyCuration>> delAll(@Parameter(hidden = true) Authentication auth) {
-        throw new UnsupportedOperationException("Not Implemented Yet!");
     }
 }

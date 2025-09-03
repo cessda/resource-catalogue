@@ -16,35 +16,22 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.domain;
 
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
-import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class Vocabulary implements Identifiable {
 
-    @XmlElement(required = true)
     private String id;
 
-    @XmlElement(required = true)
     private String name;
 
-    @XmlElement
     private String description;
 
-    @XmlElement
     private String parentId;
 
-    @XmlElement(required = true)
     private String type;
 
-    @XmlJavaTypeAdapter(ExtrasMapTypeAdapter.class)
     private Map<String, String> extras;
 
     public Vocabulary() {
@@ -61,6 +48,8 @@ public class Vocabulary implements Identifiable {
     }
 
     public enum Type {
+        // Node
+        NODE("Node"),
         // Provider
         PROVIDER_AREA_OF_ACTIVITY("Provider area of activity"),
         PROVIDER_ESFRI_TYPE("Provider esfri type"),
@@ -101,6 +90,7 @@ public class Vocabulary implements Identifiable {
         DATASOURCE_STATE("Datasource state"),
         TEMPLATE_STATE("Template state"),
         INTEROPERABILITY_RECORD_STATE("Interoperability Record state"),
+        ADAPTER_STATE("Adapter state"),
         // Datasource
         DS_RESEARCH_ENTITY_TYPE("Research entity type"),
         DS_PERSISTENT_IDENTITY_SCHEME("Persistent identity scheme"),
@@ -114,6 +104,9 @@ public class Vocabulary implements Identifiable {
         TR_EXPERTISE_LEVEL("Training Resource expertise level"),
         TR_CONTENT_RESOURCE_TYPE("Training Resource content resource type"),
         TR_QUALIFICATION("Training Resource qualification"),
+        // Adapter
+        ADAPTER_PROGRAMMING_LANGUAGE("Adapter programming language"),
+        ADAPTER_LICENSE("Adapter license"),
         // Monitoring
         MONITORING_MONITORED_BY("Monitored by"),
         // Bundle Extras

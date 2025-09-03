@@ -16,39 +16,31 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.domain;
 
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
+import io.swagger.v3.oas.annotations.media.Schema;
 
-@XmlType
-@XmlRootElement
 public class Identifiers {
 
-    @XmlElement()
+    @Schema
     private String originalId;
+
+    @Schema
+    private String pid;
 
     public Identifiers() {
     }
 
     public Identifiers(Identifiers identifiers) {
+
         this.originalId = identifiers.getOriginalId();
+        this.pid = identifiers.getPid();
     }
 
     @Override
     public String toString() {
         return "Identifiers{" +
                 "originalId='" + originalId + '\'' +
+                ", pid='" + pid + '\'' +
                 '}';
-    }
-
-    public static void createOriginalId(Bundle<?> bundle) {
-        if (bundle.getIdentifiers() != null) {
-            bundle.getIdentifiers().setOriginalId(bundle.getId());
-        } else {
-            Identifiers identifiers = new Identifiers();
-            identifiers.setOriginalId(bundle.getId());
-            bundle.setIdentifiers(identifiers);
-        }
     }
 
     public String getOriginalId() {
@@ -57,5 +49,13 @@ public class Identifiers {
 
     public void setOriginalId(String originalId) {
         this.originalId = originalId;
+    }
+
+    public String getPid() {
+        return pid;
+    }
+
+    public void setPid(String pid) {
+        this.pid = pid;
     }
 }

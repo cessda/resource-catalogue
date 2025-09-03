@@ -20,25 +20,18 @@ import gr.uoa.di.madgik.resourcecatalogue.annotation.FieldValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.GeoLocationVocValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.VocabularyValidation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlElementWrapper;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
 
 import java.net.URL;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class TrainingResource implements Identifiable {
 
     // Basic Information
     /**
      * A persistent identifier, a unique reference to the Resource.
      */
-    @XmlElement
     @Schema(example = "(required on PUT only)")
     @FieldValidation
     private String id;
@@ -46,15 +39,21 @@ public class TrainingResource implements Identifiable {
     /**
      * The human-readable name of the learning resource.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String title;
 
     /**
+     * Training Resource's original node
+     */
+    @Schema
+    @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
+    @VocabularyValidation(type = Vocabulary.Type.NODE)
+    private String node;
+
+    /**
      * The name of the organisation that manages or delivers the resource, or that coordinates the Resource delivery in a federated scenario.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Provider.class)
     private String resourceOrganisation;
@@ -62,8 +61,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The name(s) of (all) the Provider(s) that manage or deliver the Resource in federated scenarios.
      */
-    @XmlElementWrapper(name = "resourceProviders")
-    @XmlElement(name = "resourceProvider")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Provider.class)
     private List<String> resourceProviders;
@@ -71,8 +68,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The name of entity(ies) authoring the resource.
      */
-    @XmlElementWrapper(name = "authors", required = true)
-    @XmlElement(name = "author")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<String> authors;
@@ -81,7 +76,6 @@ public class TrainingResource implements Identifiable {
      * The URL that resolves to the learning resource or to a "landing page" for the resource that contains important
      * contextual information including the direct resolvable link to the resource, if applicable.
      */
-    @XmlElement(required = true)
     @Schema(example = "https://example.com", requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private URL url;
@@ -90,7 +84,6 @@ public class TrainingResource implements Identifiable {
      * The designation of identifier scheme used for the resource URL. It represents the type of the URL of the resource,
      * that is the used scheme (e.g., Web Address URL, DOI, ARK, etc.).
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_URL_TYPE)
@@ -99,8 +92,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The name(s) of (all) the Provider(s) that manage or deliver the Resource in federated scenarios.
      */
-    @XmlElementWrapper(name = "eoscRelatedServices")
-    @XmlElement(name = "eoscRelatedService")
     @Schema
     @FieldValidation(nullable = true, containsId = true, containsResourceId = true)
     private List<String> eoscRelatedServices;
@@ -108,8 +99,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Other types of Identifiers for the specific Service (eg. PID)
      */
-    @XmlElementWrapper(name = "alternativeIdentifiers")
-    @XmlElement(name = "alternativeIdentifier")
     @Schema
     @FieldValidation(nullable = true)
     private List<AlternativeIdentifier> alternativeIdentifiers;
@@ -119,7 +108,6 @@ public class TrainingResource implements Identifiable {
     /**
      * A brief synopsis about or description of the learning resource.
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private String description;
@@ -127,8 +115,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The keyword(s) or tag(s) used to describe the resource.
      */
-    @XmlElementWrapper(name = "keywords")
-    @XmlElement(name = "keyword")
     @Schema
     @FieldValidation(nullable = true)
     private List<String> keywords;
@@ -136,7 +122,6 @@ public class TrainingResource implements Identifiable {
     /**
      * A license document that applies to this content, typically indicated by URL.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private String license;
@@ -144,7 +129,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The access status of a resource (open, restricted, paid).
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_ACCESS_RIGHT)
@@ -153,7 +137,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The version date for the most recently published or broadcast resource.
      */
-    @XmlElement(required = true)
     @Schema(example = "2020-01-01", requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private Date versionDate;
@@ -163,8 +146,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The principal users(s) for which the learning resource was designed.
      */
-    @XmlElementWrapper(name = "targetGroups", required = true)
-    @XmlElement(name = "targetGroup")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TARGET_USER)
@@ -173,8 +154,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The predominant type or kind that characterizes the learning resource.
      */
-    @XmlElementWrapper(name = "learningResourceTypes")
-    @XmlElement(name = "learningResourceType")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_DCMI_TYPE)
@@ -183,8 +162,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The descriptions of what knowledge, skills or abilities students should acquire on completion of the resource.
      */
-    @XmlElementWrapper(name = "learningOutcomes", required = true)
-    @XmlElement(name = "learningOutcome")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<String> learningOutcomes;
@@ -192,7 +169,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Target skill level in the topic being taught.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_EXPERTISE_LEVEL)
@@ -201,8 +177,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The predominant content type of the learning resource (video, game, diagram, slides, etc.).
      */
-    @XmlElementWrapper(name = "contentResourceTypes")
-    @XmlElement(name = "contentResourceType")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_CONTENT_RESOURCE_TYPE)
@@ -211,8 +185,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Identification of certification, accreditation or badge obtained with course or learning resource.
      */
-    @XmlElementWrapper(name = "qualifications")
-    @XmlElement(name = "qualification")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.TR_QUALIFICATION)
@@ -221,7 +193,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Approximate or typical time it takes to work with or through the learning resource for the typical intended target audience.
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private String duration;
@@ -231,8 +202,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The language in which the resource was originally published or made available.
      */
-    @XmlElementWrapper(name = "languages", required = true)
-    @XmlElement(name = "language")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.LANGUAGE)
@@ -241,8 +210,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Locations where the Resource is offered.
      */
-    @XmlElementWrapper(name = "geographicalAvailabilities", required = true)
-    @XmlElement(name = "geographicalAvailability")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @GeoLocationVocValidation(region = Vocabulary.Type.REGION, country = Vocabulary.Type.COUNTRY)
@@ -253,8 +220,6 @@ public class TrainingResource implements Identifiable {
     /**
      * The branch of science, scientific discipline that is related to the Resource.
      */
-    @XmlElementWrapper(name = "scientificDomains", required = true)
-    @XmlElement(name = "scientificDomain")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<ServiceProviderDomain> scientificDomains;
@@ -264,7 +229,6 @@ public class TrainingResource implements Identifiable {
     /**
      * Training Resource's Main Contact Owner info.
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private ServiceMainContact contact;
@@ -274,17 +238,17 @@ public class TrainingResource implements Identifiable {
     /**
      * The Catalogue this Training Resource is originally registered at.
      */
-    @XmlElement
-    @Schema
-    @FieldValidation(nullable = true, containsId = true, idClass = Catalogue.class)
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    @FieldValidation(containsId = true, idClass = Catalogue.class)
     private String catalogueId;
 
     public TrainingResource() {
     }
 
-    public TrainingResource(String id, String title, String resourceOrganisation, List<String> resourceProviders, List<String> authors, URL url, String urlType, List<String> eoscRelatedServices, List<AlternativeIdentifier> alternativeIdentifiers, String description, List<String> keywords, String license, String accessRights, Date versionDate, List<String> targetGroups, List<String> learningResourceTypes, List<String> learningOutcomes, String expertiseLevel, List<String> contentResourceTypes, List<String> qualifications, String duration, List<String> languages, List<String> geographicalAvailabilities, List<ServiceProviderDomain> scientificDomains, ServiceMainContact contact, String catalogueId) {
+    public TrainingResource(String id, String title, String node, String resourceOrganisation, List<String> resourceProviders, List<String> authors, URL url, String urlType, List<String> eoscRelatedServices, List<AlternativeIdentifier> alternativeIdentifiers, String description, List<String> keywords, String license, String accessRights, Date versionDate, List<String> targetGroups, List<String> learningResourceTypes, List<String> learningOutcomes, String expertiseLevel, List<String> contentResourceTypes, List<String> qualifications, String duration, List<String> languages, List<String> geographicalAvailabilities, List<ServiceProviderDomain> scientificDomains, ServiceMainContact contact, String catalogueId) {
         this.id = id;
         this.title = title;
+        this.node = node;
         this.resourceOrganisation = resourceOrganisation;
         this.resourceProviders = resourceProviders;
         this.authors = authors;
@@ -313,15 +277,14 @@ public class TrainingResource implements Identifiable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TrainingResource that = (TrainingResource) o;
-        return Objects.equals(id, that.id) && Objects.equals(title, that.title) && Objects.equals(resourceOrganisation, that.resourceOrganisation) && Objects.equals(resourceProviders, that.resourceProviders) && Objects.equals(authors, that.authors) && Objects.equals(url, that.url) && Objects.equals(urlType, that.urlType) && Objects.equals(eoscRelatedServices, that.eoscRelatedServices) && Objects.equals(alternativeIdentifiers, that.alternativeIdentifiers) && Objects.equals(description, that.description) && Objects.equals(keywords, that.keywords) && Objects.equals(license, that.license) && Objects.equals(accessRights, that.accessRights) && Objects.equals(versionDate, that.versionDate) && Objects.equals(targetGroups, that.targetGroups) && Objects.equals(learningResourceTypes, that.learningResourceTypes) && Objects.equals(learningOutcomes, that.learningOutcomes) && Objects.equals(expertiseLevel, that.expertiseLevel) && Objects.equals(contentResourceTypes, that.contentResourceTypes) && Objects.equals(qualifications, that.qualifications) && Objects.equals(duration, that.duration) && Objects.equals(languages, that.languages) && Objects.equals(geographicalAvailabilities, that.geographicalAvailabilities) && Objects.equals(scientificDomains, that.scientificDomains) && Objects.equals(contact, that.contact) && Objects.equals(catalogueId, that.catalogueId);
+        return Objects.equals(id, that.id) && Objects.equals(title, that.title) && Objects.equals(node, that.node) && Objects.equals(resourceOrganisation, that.resourceOrganisation) && Objects.equals(resourceProviders, that.resourceProviders) && Objects.equals(authors, that.authors) && Objects.equals(url, that.url) && Objects.equals(urlType, that.urlType) && Objects.equals(eoscRelatedServices, that.eoscRelatedServices) && Objects.equals(alternativeIdentifiers, that.alternativeIdentifiers) && Objects.equals(description, that.description) && Objects.equals(keywords, that.keywords) && Objects.equals(license, that.license) && Objects.equals(accessRights, that.accessRights) && Objects.equals(versionDate, that.versionDate) && Objects.equals(targetGroups, that.targetGroups) && Objects.equals(learningResourceTypes, that.learningResourceTypes) && Objects.equals(learningOutcomes, that.learningOutcomes) && Objects.equals(expertiseLevel, that.expertiseLevel) && Objects.equals(contentResourceTypes, that.contentResourceTypes) && Objects.equals(qualifications, that.qualifications) && Objects.equals(duration, that.duration) && Objects.equals(languages, that.languages) && Objects.equals(geographicalAvailabilities, that.geographicalAvailabilities) && Objects.equals(scientificDomains, that.scientificDomains) && Objects.equals(contact, that.contact) && Objects.equals(catalogueId, that.catalogueId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, title, resourceOrganisation, resourceProviders, authors, url, urlType, eoscRelatedServices, alternativeIdentifiers, description, keywords, license, accessRights, versionDate, targetGroups, learningResourceTypes, learningOutcomes, expertiseLevel, contentResourceTypes, qualifications, duration, languages, geographicalAvailabilities, scientificDomains, contact, catalogueId);
+        return Objects.hash(id, title, node, resourceOrganisation, resourceProviders, authors, url, urlType, eoscRelatedServices, alternativeIdentifiers, description, keywords, license, accessRights, versionDate, targetGroups, learningResourceTypes, learningOutcomes, expertiseLevel, contentResourceTypes, qualifications, duration, languages, geographicalAvailabilities, scientificDomains, contact, catalogueId);
     }
 
     @Override
@@ -329,6 +292,7 @@ public class TrainingResource implements Identifiable {
         return "TrainingResource{" +
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
+                ", node='" + node + '\'' +
                 ", resourceOrganisation='" + resourceOrganisation + '\'' +
                 ", resourceProviders=" + resourceProviders +
                 ", authors=" + authors +
@@ -372,6 +336,14 @@ public class TrainingResource implements Identifiable {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public String getResourceOrganisation() {

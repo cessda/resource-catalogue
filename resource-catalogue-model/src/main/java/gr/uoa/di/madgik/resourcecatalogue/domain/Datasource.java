@@ -19,45 +19,42 @@ package gr.uoa.di.madgik.resourcecatalogue.domain;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.FieldValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.VocabularyValidation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlElementWrapper;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
 
 import java.net.URL;
 import java.util.List;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class Datasource implements Identifiable {
 
     // Basic Information
     /**
-     * A persistent identifier, a unique reference to the Datasource in the context of the EOSC Portal.
+     * A persistent identifier, a unique reference to the Datasource.
      */
-    @XmlElement
     @Schema(example = "(required on PUT only)")
     @FieldValidation
     private String id;
 
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Service.class)
     private String serviceId;
 
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Catalogue.class)
     private String catalogueId;
 
+    /**
+     * Datasource's original Node
+     */
+    @Schema
+    @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
+    @VocabularyValidation(type = Vocabulary.Type.NODE)
+    private String node;
 
     // Data Source Policies
     /**
      * This policy provides a comprehensive framework for the contribution of research products.
      * Criteria for submitting content to the repository as well as product preparation guidelines can be stated. Concepts for quality assurance may be provided.
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL submissionPolicyURL;
@@ -67,7 +64,6 @@ public class Datasource implements Identifiable {
      * Principles aims and responsibilities must be clarified. An important aspect is the description of preservation concepts to ensure the technical and conceptual
      * utility of the content
      */
-    @XmlElement
     @Schema(example = "https://example.com")
     @FieldValidation(nullable = true)
     private URL preservationPolicyURL;
@@ -75,7 +71,6 @@ public class Datasource implements Identifiable {
     /**
      * If data versioning is supported: the data source explicitly allows the deposition of different versions of the same object
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private Boolean versionControl;
@@ -83,8 +78,6 @@ public class Datasource implements Identifiable {
     /**
      * The persistent identifier systems that are used by the Data Source to identify the EntityType it supports
      */
-    @XmlElementWrapper(name = "persistentIdentitySystems")
-    @XmlElement(name = "persistentIdentitySystem")
     @Schema
     @FieldValidation(nullable = true)
     private List<PersistentIdentitySystem> persistentIdentitySystems;
@@ -94,8 +87,7 @@ public class Datasource implements Identifiable {
     /**
      * The property defines the jurisdiction of the users of the data source, based on the vocabulary for this property
      */
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.DS_JURISDICTION)
     private String jurisdiction;
@@ -103,8 +95,7 @@ public class Datasource implements Identifiable {
     /**
      * The specific type of the data source based on the vocabulary defined for this property
      */
-    @XmlElement(required = true)
-    @Schema
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.DS_CLASSIFICATION)
     private String datasourceClassification;
@@ -112,8 +103,6 @@ public class Datasource implements Identifiable {
     /**
      * The types of OpenAIRE entities managed by the data source, based on the vocabulary for this property
      */
-    @XmlElementWrapper(required = true, name = "researchEntityTypes")
-    @XmlElement(name = "researchEntityType")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.DS_RESEARCH_ENTITY_TYPE)
@@ -122,7 +111,6 @@ public class Datasource implements Identifiable {
     /**
      * Boolean value specifying if the data source is dedicated to a given discipline or is instead discipline agnostic
      */
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation()
     private Boolean thematic;
@@ -133,8 +121,6 @@ public class Datasource implements Identifiable {
      * Licenses under which the research products contained within the data sources can be made available.
      * Repositories can allow a license to be defined for each research product, while for scientific databases the database is typically provided under a single license.
      */
-    @XmlElementWrapper(name = "researchProductLicensings")
-    @XmlElement(name = "researchProductLicensing")
     @Schema
     @FieldValidation(nullable = true)
     private List<ResearchProductLicensing> researchProductLicensings;
@@ -142,8 +128,6 @@ public class Datasource implements Identifiable {
     /**
      * Research product access policy
      */
-    @XmlElementWrapper(name = "researchProductAccessPolicies")
-    @XmlElement(name = "researchProductAccessPolicy")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.DS_COAR_ACCESS_RIGHTS_1_0)
@@ -155,7 +139,6 @@ public class Datasource implements Identifiable {
      * Metadata Policy for information describing items in the repository:
      * Access and re-use of metadata
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private ResearchProductMetadataLicensing researchProductMetadataLicensing;
@@ -163,8 +146,6 @@ public class Datasource implements Identifiable {
     /**
      * Research Product Metadata Access Policy
      */
-    @XmlElementWrapper(name = "researchProductMetadataAccessPolicies")
-    @XmlElement(name = "researchProductMetadataAccessPolicy")
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.DS_COAR_ACCESS_RIGHTS_1_0)
@@ -175,7 +156,6 @@ public class Datasource implements Identifiable {
     /**
      * Boolean value specifying if the data source requires the harvesting of Research Products into the Research Catalogue
      */
-    @XmlElement
     @Schema
     @FieldValidation(nullable = true)
     private Boolean harvestable;
@@ -183,10 +163,11 @@ public class Datasource implements Identifiable {
     public Datasource() {
     }
 
-    public Datasource(String id, String serviceId, String catalogueId, URL submissionPolicyURL, URL preservationPolicyURL, Boolean versionControl, List<PersistentIdentitySystem> persistentIdentitySystems, String jurisdiction, String datasourceClassification, List<String> researchEntityTypes, Boolean thematic, List<ResearchProductLicensing> researchProductLicensings, List<String> researchProductAccessPolicies, ResearchProductMetadataLicensing researchProductMetadataLicensing, List<String> researchProductMetadataAccessPolicies, Boolean harvestable) {
+    public Datasource(String id, String serviceId, String catalogueId, String node, URL submissionPolicyURL, URL preservationPolicyURL, Boolean versionControl, List<PersistentIdentitySystem> persistentIdentitySystems, String jurisdiction, String datasourceClassification, List<String> researchEntityTypes, Boolean thematic, List<ResearchProductLicensing> researchProductLicensings, List<String> researchProductAccessPolicies, ResearchProductMetadataLicensing researchProductMetadataLicensing, List<String> researchProductMetadataAccessPolicies, Boolean harvestable) {
         this.id = id;
         this.serviceId = serviceId;
         this.catalogueId = catalogueId;
+        this.node = node;
         this.submissionPolicyURL = submissionPolicyURL;
         this.preservationPolicyURL = preservationPolicyURL;
         this.versionControl = versionControl;
@@ -207,12 +188,12 @@ public class Datasource implements Identifiable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Datasource that = (Datasource) o;
-        return Objects.equals(id, that.id) && Objects.equals(serviceId, that.serviceId) && Objects.equals(catalogueId, that.catalogueId) && Objects.equals(submissionPolicyURL, that.submissionPolicyURL) && Objects.equals(preservationPolicyURL, that.preservationPolicyURL) && Objects.equals(versionControl, that.versionControl) && Objects.equals(persistentIdentitySystems, that.persistentIdentitySystems) && Objects.equals(jurisdiction, that.jurisdiction) && Objects.equals(datasourceClassification, that.datasourceClassification) && Objects.equals(researchEntityTypes, that.researchEntityTypes) && Objects.equals(thematic, that.thematic) && Objects.equals(researchProductLicensings, that.researchProductLicensings) && Objects.equals(researchProductAccessPolicies, that.researchProductAccessPolicies) && Objects.equals(researchProductMetadataLicensing, that.researchProductMetadataLicensing) && Objects.equals(researchProductMetadataAccessPolicies, that.researchProductMetadataAccessPolicies) && Objects.equals(harvestable, that.harvestable);
+        return Objects.equals(id, that.id) && Objects.equals(serviceId, that.serviceId) && Objects.equals(catalogueId, that.catalogueId) && Objects.equals(node, that.node) && Objects.equals(submissionPolicyURL, that.submissionPolicyURL) && Objects.equals(preservationPolicyURL, that.preservationPolicyURL) && Objects.equals(versionControl, that.versionControl) && Objects.equals(persistentIdentitySystems, that.persistentIdentitySystems) && Objects.equals(jurisdiction, that.jurisdiction) && Objects.equals(datasourceClassification, that.datasourceClassification) && Objects.equals(researchEntityTypes, that.researchEntityTypes) && Objects.equals(thematic, that.thematic) && Objects.equals(researchProductLicensings, that.researchProductLicensings) && Objects.equals(researchProductAccessPolicies, that.researchProductAccessPolicies) && Objects.equals(researchProductMetadataLicensing, that.researchProductMetadataLicensing) && Objects.equals(researchProductMetadataAccessPolicies, that.researchProductMetadataAccessPolicies) && Objects.equals(harvestable, that.harvestable);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, serviceId, catalogueId, submissionPolicyURL, preservationPolicyURL, versionControl, persistentIdentitySystems, jurisdiction, datasourceClassification, researchEntityTypes, thematic, researchProductLicensings, researchProductAccessPolicies, researchProductMetadataLicensing, researchProductMetadataAccessPolicies, harvestable);
+        return Objects.hash(id, serviceId, catalogueId, node, submissionPolicyURL, preservationPolicyURL, versionControl, persistentIdentitySystems, jurisdiction, datasourceClassification, researchEntityTypes, thematic, researchProductLicensings, researchProductAccessPolicies, researchProductMetadataLicensing, researchProductMetadataAccessPolicies, harvestable);
     }
 
     @Override
@@ -221,6 +202,7 @@ public class Datasource implements Identifiable {
                 "id='" + id + '\'' +
                 ", serviceId='" + serviceId + '\'' +
                 ", catalogueId='" + catalogueId + '\'' +
+                ", node='" + node + '\'' +
                 ", submissionPolicyURL=" + submissionPolicyURL +
                 ", preservationPolicyURL=" + preservationPolicyURL +
                 ", versionControl=" + versionControl +
@@ -261,6 +243,14 @@ public class Datasource implements Identifiable {
 
     public void setCatalogueId(String catalogueId) {
         this.catalogueId = catalogueId;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public URL getSubmissionPolicyURL() {

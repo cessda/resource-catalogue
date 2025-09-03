@@ -17,35 +17,30 @@
 package gr.uoa.di.madgik.resourcecatalogue.domain;
 
 import gr.uoa.di.madgik.resourcecatalogue.annotation.FieldValidation;
+import gr.uoa.di.madgik.resourcecatalogue.annotation.VocabularyValidation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlElementWrapper;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
 
 import java.util.List;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class ResourceInteroperabilityRecord implements Identifiable {
 
-    @XmlElement()
     @Schema(example = "(required on PUT only)")
     private String id;
 
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, containsResourceId = true)
     private String resourceId;
 
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = Catalogue.class)
     private String catalogueId;
 
-    @XmlElementWrapper(name = "interoperabilityRecordIds", required = true)
-    @XmlElement(name = "interoperabilityRecordId")
+    @Schema
+    @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
+    @VocabularyValidation(type = Vocabulary.Type.NODE)
+    private String node;
+
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, idClass = InteroperabilityRecord.class)
     private List<String> interoperabilityRecordIds;
@@ -53,24 +48,24 @@ public class ResourceInteroperabilityRecord implements Identifiable {
     public ResourceInteroperabilityRecord() {
     }
 
-    public ResourceInteroperabilityRecord(String id, String resourceId, String catalogueId, List<String> interoperabilityRecordIds) {
+    public ResourceInteroperabilityRecord(String id, String resourceId, String catalogueId, String node, List<String> interoperabilityRecordIds) {
         this.id = id;
         this.resourceId = resourceId;
         this.catalogueId = catalogueId;
+        this.node = node;
         this.interoperabilityRecordIds = interoperabilityRecordIds;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ResourceInteroperabilityRecord that = (ResourceInteroperabilityRecord) o;
-        return Objects.equals(id, that.id) && Objects.equals(resourceId, that.resourceId) && Objects.equals(catalogueId, that.catalogueId) && Objects.equals(interoperabilityRecordIds, that.interoperabilityRecordIds);
+        return Objects.equals(id, that.id) && Objects.equals(resourceId, that.resourceId) && Objects.equals(catalogueId, that.catalogueId) && Objects.equals(node, that.node) && Objects.equals(interoperabilityRecordIds, that.interoperabilityRecordIds);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, resourceId, catalogueId, interoperabilityRecordIds);
+        return Objects.hash(id, resourceId, catalogueId, node, interoperabilityRecordIds);
     }
 
     @Override
@@ -79,6 +74,7 @@ public class ResourceInteroperabilityRecord implements Identifiable {
                 "id='" + id + '\'' +
                 ", resourceId='" + resourceId + '\'' +
                 ", catalogueId='" + catalogueId + '\'' +
+                ", node='" + node + '\'' +
                 ", interoperabilityRecordIds=" + interoperabilityRecordIds +
                 '}';
     }
@@ -107,6 +103,14 @@ public class ResourceInteroperabilityRecord implements Identifiable {
 
     public void setCatalogueId(String catalogueId) {
         this.catalogueId = catalogueId;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public List<String> getInteroperabilityRecordIds() {

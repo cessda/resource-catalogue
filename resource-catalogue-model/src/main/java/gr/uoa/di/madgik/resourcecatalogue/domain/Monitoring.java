@@ -19,35 +19,33 @@ package gr.uoa.di.madgik.resourcecatalogue.domain;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.FieldValidation;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.VocabularyValidation;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.xml.bind.annotation.XmlElement;
-import jakarta.xml.bind.annotation.XmlElementWrapper;
-import jakarta.xml.bind.annotation.XmlRootElement;
-import jakarta.xml.bind.annotation.XmlType;
 
 import java.util.List;
 import java.util.Objects;
 
-@XmlType
-@XmlRootElement
 public class Monitoring implements Identifiable {
 
-    @XmlElement()
     @Schema(example = "(required on PUT only)")
     private String id;
 
-    @XmlElement(required = true)
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation(containsId = true, containsResourceId = true)
     private String serviceId;
 
-    @XmlElement()
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    @FieldValidation(containsId = true, idClass = Catalogue.class)
+    private String catalogueId;
+
+    @Schema
+    @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
+    @VocabularyValidation(type = Vocabulary.Type.NODE)
+    private String node;
+
     @Schema
     @FieldValidation(nullable = true, containsId = true, idClass = Vocabulary.class)
     @VocabularyValidation(type = Vocabulary.Type.MONITORING_MONITORED_BY)
     private String monitoredBy;
 
-    @XmlElementWrapper(name = "monitoringGroups", required = true)
-    @XmlElement(name = "monitoringGroup")
     @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     @FieldValidation
     private List<MonitoringGroup> monitoringGroups;
@@ -55,24 +53,25 @@ public class Monitoring implements Identifiable {
     public Monitoring() {
     }
 
-    public Monitoring(String id, String serviceId, String monitoredBy, List<MonitoringGroup> monitoringGroups) {
+    public Monitoring(String id, String serviceId, String catalogueId, String node, String monitoredBy, List<MonitoringGroup> monitoringGroups) {
         this.id = id;
         this.serviceId = serviceId;
+        this.catalogueId = catalogueId;
+        this.node = node;
         this.monitoredBy = monitoredBy;
         this.monitoringGroups = monitoringGroups;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Monitoring that = (Monitoring) o;
-        return Objects.equals(id, that.id) && Objects.equals(serviceId, that.serviceId) && Objects.equals(monitoredBy, that.monitoredBy) && Objects.equals(monitoringGroups, that.monitoringGroups);
+        return Objects.equals(id, that.id) && Objects.equals(serviceId, that.serviceId) && Objects.equals(catalogueId, that.catalogueId) && Objects.equals(node, that.node) && Objects.equals(monitoredBy, that.monitoredBy) && Objects.equals(monitoringGroups, that.monitoringGroups);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, serviceId, monitoredBy, monitoringGroups);
+        return Objects.hash(id, serviceId, catalogueId, node, monitoredBy, monitoringGroups);
     }
 
     @Override
@@ -80,6 +79,8 @@ public class Monitoring implements Identifiable {
         return "Monitoring{" +
                 "id='" + id + '\'' +
                 ", serviceId='" + serviceId + '\'' +
+                ", catalogueId='" + catalogueId + '\'' +
+                ", node='" + node + '\'' +
                 ", monitoredBy='" + monitoredBy + '\'' +
                 ", monitoringGroups=" + monitoringGroups +
                 '}';
@@ -101,6 +102,22 @@ public class Monitoring implements Identifiable {
 
     public void setServiceId(String serviceId) {
         this.serviceId = serviceId;
+    }
+
+    public String getCatalogueId() {
+        return catalogueId;
+    }
+
+    public void setCatalogueId(String catalogueId) {
+        this.catalogueId = catalogueId;
+    }
+
+    public String getNode() {
+        return node;
+    }
+
+    public void setNode(String node) {
+        this.node = node;
     }
 
     public String getMonitoredBy() {
