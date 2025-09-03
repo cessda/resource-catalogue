@@ -79,6 +79,7 @@ pipeline {
   post {
     success {
       echo 'Build Successful'
+      build job: 'cessda.resource-catalogue.deploy/main', parameters: [string(name: 'BACKEND_IMAGE_TAG', value: DOCKER_TAG)], wait: false
     }
     failure {
       echo 'Build Failed'
