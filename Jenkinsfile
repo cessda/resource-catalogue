@@ -22,15 +22,7 @@ pipeline {
           } else if (env.BRANCH_NAME == 'master') {
             VERSION = POM_VERSION
             DOCKER_TAG = "${VERSION}-${GIT_COMMIT}"
-            echo "Detected release branch: ${VERSION}-beta"
-          } else if (env.BRANCH_NAME.startsWith('release/')) {
-            VERSION = env.BRANCH_NAME.split('/')[1]
-            DOCKER_TAG = "${VERSION}-beta"
-            echo "Detected release branch: ${VERSION}-beta"
-          } else if (env.TAG_NAME != null) {
-            VERSION = env.TAG_NAME.replaceFirst(/^v/, '')
-            DOCKER_TAG = VERSION
-            echo "Detected tag: ${env.TAG_NAME} (version ${VERSION})"
+            echo "Detected master branch: ${VERSION}"
           } else {
             VERSION = POM_VERSION
             DOCKER_TAG = "${VERSION}-${GIT_COMMIT}"
