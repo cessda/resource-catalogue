@@ -17,11 +17,11 @@ pipeline {
           def POM_VERSION = sh(script: './mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -c 1-5', returnStdout: true).trim()
           if (env.BRANCH_NAME == 'develop') {
             VERSION = POM_VERSION
-            DOCKER_TAG = 'dev'
+            DOCKER_TAG = "${GIT_COMMIT}-dev"
             echo "Detected development branch."
           } else if (env.BRANCH_NAME == 'master') {
             VERSION = POM_VERSION
-            DOCKER_TAG = "${VERSION}-beta"
+            DOCKER_TAG = "${VERSION}-${GIT_COMMIT}"
             echo "Detected release branch: ${VERSION}-beta"
           } else if (env.BRANCH_NAME.startsWith('release/')) {
             VERSION = env.BRANCH_NAME.split('/')[1]
@@ -33,8 +33,7 @@ pipeline {
             echo "Detected tag: ${env.TAG_NAME} (version ${VERSION})"
           } else {
             VERSION = POM_VERSION
-            def branch = env.BRANCH_NAME.replace('/', '-')
-            DOCKER_TAG = "${VERSION}-${branch}"
+            DOCKER_TAG = "${VERSION}-${GIT_COMMIT}"
           }
           if ( POM_VERSION != VERSION ) {
             error("Version mismatch. \n\tProject's pom version:\t${POM_VERSION} \n\tBranch|Tag version:\t${VERSION}")
