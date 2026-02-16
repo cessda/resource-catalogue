@@ -1,5 +1,5 @@
 ### Build using Maven ###
-FROM maven:3.9 AS maven
+FROM maven:3.9-eclipse-temurin-21 AS maven
 ARG profile
 
 WORKDIR /build
@@ -32,7 +32,7 @@ RUN if [ -z "$profile" ] ; then mvn package ; else mvn package -P $profile ; fi
 
 
 ### Create Docker Image ###
-FROM openjdk:21-jdk-slim
+FROM openjdk:21-ea-jdk-slim
 
 RUN apt update && apt install -y curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

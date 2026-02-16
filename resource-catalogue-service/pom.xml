@@ -3,13 +3,12 @@
     <parent>
         <groupId>gr.uoa.di.madgik</groupId>
         <artifactId>resource-catalogue</artifactId>
-        <version>5.2.0</version>
+        <version>5.4.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>resource-catalogue-service</artifactId>
-    <version>5.2.0</version>
     <packaging>jar</packaging>
 
     <licenses>
@@ -208,6 +207,10 @@
             <groupId>gr.uoa.di.madgik</groupId>
             <artifactId>catalogue</artifactId>
         </dependency>
+        <dependency>
+            <groupId>gr.uoa.di.madgik</groupId>
+            <artifactId>request-logging-starter</artifactId>
+        </dependency>
 
 
         <dependency>
@@ -291,7 +294,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>1.79</version>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -330,6 +333,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-testcontainers</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.11.0</version>
+            <scope>compile</scope>
         </dependency>
 
     </dependencies>
