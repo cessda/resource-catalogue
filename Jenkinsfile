@@ -39,9 +39,7 @@ pipeline {
           when { expression { return env.TAG_NAME == null } }
           steps {
             catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-              withCredentials([string(credentialsId: 'nvd-api-key', variable: 'NVD_API_KEY')]) {
-                sh 'mvn -B -T 1C verify -DnvdApiKey=$NVD_API_KEY -DfailBuildOnCVSS=11'
-              }
+              sh './mvnw -B -T 1C verify -DfailBuildOnCVSS=11'
             }
           }
           post {
