@@ -87,12 +87,12 @@ pipeline {
             gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}
           """
           DOCKER_IMAGE.push()
-          if (env.TAG_NAME) {
+          if (DOCKER_TAG.endsWith('-SNAPSHOT')) {
+            DOCKER_IMAGE.push("dev")
+          } else {
             def minorTag = DOCKER_TAG.tokenize('.').take(2).join('.')
             DOCKER_IMAGE.push(minorTag)
             DOCKER_IMAGE.push("latest")
-          } else if (DOCKER_TAG.endsWith('-SNAPSHOT')) {
-            DOCKER_IMAGE.push("dev")
           }
         }
       }
