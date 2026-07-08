@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import java.util.List;
 
 @Profile("crud")
 @RestController
-@RequestMapping("pids")
+@RequestMapping(path = "pids", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "pids", description = "PID related operations")
 public class PidController {
 
@@ -44,42 +44,42 @@ public class PidController {
     }
 
     @Operation(summary = "Returns the Resource with the given PID.")
-    @GetMapping(path = "{prefix}/{suffix}", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @GetMapping(path = "{prefix}/{suffix}")
     public ResponseEntity<?> get(@Parameter(description = "The left part of the ID before the '/'") @PathVariable("prefix") String prefix,
                                  @Parameter(description = "The right part of the ID after the '/'") @PathVariable("suffix") String suffix) {
-        Bundle<?> bundle = pidService.get(prefix, suffix);
+        Bundle bundle = pidService.get(prefix, suffix);
         if (bundle != null) {
             return new ResponseEntity<>(bundle.getPayload(), HttpStatus.OK);
         }
-        return new ResponseEntity<>(null, HttpStatus.OK);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Register/Update a resource on the PID service")
-    @PostMapping(path = "{prefix}/{suffix}", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @PostMapping(path = "{prefix}/{suffix}")
     public ResponseEntity<?> register(@Parameter(description = "The left part of the ID before the '/'") @PathVariable("prefix") String prefix,
                                       @Parameter(description = "The right part of the ID after the '/'") @PathVariable("suffix") String suffix,
                                       @Parameter(description = "A list of resolve endpoints") @RequestParam(value = "resolveEndpoints", required = false) List<String> resolveEndpoints) {
-        Bundle<?> bundle = pidService.get(prefix, suffix);
+        Bundle bundle = pidService.get(prefix, suffix);
         if (bundle != null) {
             pidService.register(bundle.getId(), resolveEndpoints);
-            return new ResponseEntity<>(null, HttpStatus.OK);
+            return ResponseEntity.ok().build();
         } else {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            return ResponseEntity.notFound().build();
         }
     }
 
     @Hidden
     @Operation(summary = "Deletes a resource on the PID service")
-    @DeleteMapping(path = "{prefix}/{suffix}", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @DeleteMapping(path = "{prefix}/{suffix}")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<?> delete(@Parameter(description = "The left part of the ID before the '/'") @PathVariable("prefix") String prefix,
                                     @Parameter(description = "The right part of the ID after the '/'") @PathVariable("suffix") String suffix) {
-        Bundle<?> bundle = pidService.get(prefix, suffix);
+        Bundle bundle = pidService.get(prefix, suffix);
         if (bundle != null) {
             pidService.delete(bundle.getId());
-            return new ResponseEntity<>(null, HttpStatus.OK);
+            return ResponseEntity.ok().build();
         } else {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            return ResponseEntity.notFound().build();
         }
     }
 }

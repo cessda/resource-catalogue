@@ -1,195 +1,336 @@
 {
-  "$schema" : "https://json-schema.org/draft/2020-12/schema",
-  "$defs" : {
-    "EOSCIFGuidelines" : {
-      "type" : "object",
-      "properties" : {
-        "label" : {
-          "type" : "string"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Identifiers": {
+      "type": "object",
+      "properties": {
+        "externalId": {
+          "type": "string"
         },
-        "pid" : {
-          "type" : "string"
+        "originalId": {
+          "type": "string"
         },
-        "semanticRelationship" : {
-          "type" : "string"
-        },
-        "url" : {
-          "$ref" : "#/$defs/URL"
+        "pid": {
+          "type": "string"
         }
       },
-      "additionalProperties" : false
+      "additionalProperties": false
     },
-    "Identifiers" : {
-      "type" : "object",
-      "properties" : {
-        "originalId" : {
-          "type" : "string"
+    "LoggingInfo": {
+      "type": "object",
+      "properties": {
+        "actionType": {
+          "type": "string"
         },
-        "pid" : {
-          "type" : "string"
+        "comment": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "userEmail": {
+          "type": "string"
+        },
+        "userFullName": {
+          "type": "string"
+        },
+        "userRole": {
+          "type": "string"
         }
       },
-      "additionalProperties" : false
+      "additionalProperties": false
     },
-    "LoggingInfo" : {
-      "type" : "object",
-      "properties" : {
-        "actionType" : {
-          "type" : "string"
+    "Metadata": {
+      "type": "object",
+      "properties": {
+        "modifiedAt": {
+          "type": "string"
         },
-        "comment" : {
-          "type" : "string"
+        "modifiedBy": {
+          "type": "string"
         },
-        "date" : {
-          "type" : "string"
+        "published": {
+          "type": "boolean"
         },
-        "type" : {
-          "type" : "string"
+        "registeredAt": {
+          "type": "string"
         },
-        "userEmail" : {
-          "type" : "string"
+        "registeredBy": {
+          "type": "string"
         },
-        "userFullName" : {
-          "type" : "string"
-        },
-        "userRole" : {
-          "type" : "string"
-        }
-      },
-      "additionalProperties" : false
-    },
-    "Metadata" : {
-      "type" : "object",
-      "properties" : {
-        "modifiedAt" : {
-          "type" : "string"
-        },
-        "modifiedBy" : {
-          "type" : "string"
-        },
-        "published" : {
-          "type" : "boolean"
-        },
-        "registeredAt" : {
-          "type" : "string"
-        },
-        "registeredBy" : {
-          "type" : "string"
-        },
-        "terms" : {
-          "type" : "array",
-          "items" : {
-            "type" : "string"
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       },
-      "additionalProperties" : false
+      "additionalProperties": false
     },
-    "MigrationStatus" : {
-      "type" : "object",
-      "properties" : {
-        "comments" : {
-          "type" : "array",
-          "items" : {
-            "type" : "string"
+    "Service": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
-        "migrationDate" : {
-          "type" : "string"
+        "alternativePIDs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pid": {
+                "type": "string"
+              },
+              "pidSchema": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
         },
-        "modelVersion" : {
-          "type" : "string"
+        "nodePID": {
+          "type": "string"
         },
-        "modified" : {
-          "type" : "string"
+        "description": {
+          "type": "string"
         },
-        "resolutionDate" : {
-          "type" : "string"
-        }
-      },
-      "additionalProperties" : false
-    },
-    "ResourceExtras" : {
-      "type" : "object",
-      "properties" : {
-        "eoscIFGuidelines" : {
-          "type" : "array",
-          "items" : {
-            "$ref" : "#/$defs/EOSCIFGuidelines"
+        "publishingDate": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "resourceOwner": {
+          "type": "string"
+        },
+        "serviceProviders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "webpage": {
+          "type": "string"
+        },
+        "logo": {
+          "type": "string"
+        },
+        "scientificDomains": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "scientificDomain": {
+                "type": "string"
+              },
+              "scientificSubdomain": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string"
+              },
+              "subcategory": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "accessTypes": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "trl": {
+          "type": "string"
+        },
+        "termsOfUse": {
+          "type": "string"
+        },
+        "privacyPolicy": {
+          "type": "string"
+        },
+        "accessPolicy": {
+          "type": "string"
+        },
+        "orderType": {
+          "type": "string"
+        },
+        "order": {
+          "type": "string"
+        },
+        "mainContact": {
+          "type": "object",
+          "properties": {
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            },
+            "PIDs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "mainContactPID": {
+                    "type": "string"
+                  },
+                  "mainContactPIDScheme": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "mainContactPID",
+                  "mainContactPIDScheme"
+                ]
+              }
+            },
+            "affiliations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "affiliationName": {
+                    "type": "string"
+                  },
+                  "affiliationIdentifier": {
+                    "type": "object",
+                    "properties": {
+                      "mainContactID": {
+                        "type": "string"
+                      },
+                      "mainContactType": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "mainContactID",
+                      "mainContactType"
+                    ]
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "affiliationName"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "firstName",
+            "lastName",
+            "email"
+          ]
+        },
+        "publicContacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       },
-      "additionalProperties" : false
-    },
-    "URL" : {
-      "type" : "object",
-      "properties" : {
-        "authority" : {
-          "type" : "string"
-        },
-        "file" : {
-          "type" : "string"
-        },
-        "host" : {
-          "type" : "string"
-        },
-        "port" : {
-          "type" : "integer"
-        },
-        "protocol" : {
-          "type" : "string"
-        },
-        "ref" : {
-          "type" : "string"
-        }
-      },
-      "additionalProperties" : false
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "nodePID",
+        "description",
+        "publishingDate",
+        "type",
+        "resourceOwner",
+        "webpage",
+        "jurisdiction",
+        "trl",
+        "orderType",
+        "mainContact",
+        "publicContacts"
+      ]
     }
   },
-  "type" : "object",
-  "properties" : {
-    "active" : {
-      "type" : "boolean"
+  "type": "object",
+  "properties": {
+    "active": {
+      "type": "boolean"
     },
-    "auditState" : {
-      "type" : "string"
+    "auditState": {
+      "type": "string"
     },
-    "draft" : {
-      "type" : "boolean"
+    "catalogueId": {
+      "type": "string"
     },
-    "identifiers" : {
-      "$ref" : "#/$defs/Identifiers"
+    "draft": {
+      "type": "boolean"
     },
-    "latestAuditInfo" : {
-      "$ref" : "#/$defs/LoggingInfo"
+    "identifiers": {
+      "$ref": "#/$defs/Identifiers"
     },
-    "latestOnboardingInfo" : {
-      "$ref" : "#/$defs/LoggingInfo"
+    "latestAuditInfo": {
+      "$ref": "#/$defs/LoggingInfo"
     },
-    "latestUpdateInfo" : {
-      "$ref" : "#/$defs/LoggingInfo"
+    "latestOnboardingInfo": {
+      "$ref": "#/$defs/LoggingInfo"
     },
-    "loggingInfo" : {
-      "type" : "array",
-      "items" : {
-        "$ref" : "#/$defs/LoggingInfo"
+    "latestUpdateInfo": {
+      "$ref": "#/$defs/LoggingInfo"
+    },
+    "legacy": {
+      "type": "boolean"
+    },
+    "loggingInfo": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/LoggingInfo"
       }
     },
-    "metadata" : {
-      "$ref" : "#/$defs/Metadata"
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
     },
-    "migrationStatus" : {
-      "$ref" : "#/$defs/MigrationStatus"
+    "status": {
+      "type": "string"
     },
-    "resourceExtras" : {
-      "$ref" : "#/$defs/ResourceExtras"
+    "suspended": {
+      "type": "boolean"
     },
-    "status" : {
-      "type" : "string"
-    },
-    "suspended" : {
-      "type" : "boolean"
+    "service": {
+      "$ref": "#/$defs/Service"
     }
   },
-  "additionalProperties" : false
+  "additionalProperties": false
 }

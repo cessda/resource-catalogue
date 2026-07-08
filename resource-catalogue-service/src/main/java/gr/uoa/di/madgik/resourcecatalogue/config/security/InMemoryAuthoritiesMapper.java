@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,18 +20,18 @@ import gr.uoa.di.madgik.registry.domain.FacetFilter;
 import gr.uoa.di.madgik.registry.service.ServiceException;
 import gr.uoa.di.madgik.resourcecatalogue.config.dynamicproperties.PropertyChangeEvent;
 import gr.uoa.di.madgik.resourcecatalogue.config.properties.CatalogueProperties;
-import gr.uoa.di.madgik.resourcecatalogue.domain.CatalogueBundle;
-import gr.uoa.di.madgik.resourcecatalogue.domain.ProviderBundle;
+import gr.uoa.di.madgik.resourcecatalogue.domain.OrganisationBundle;
 import gr.uoa.di.madgik.resourcecatalogue.domain.User;
 import gr.uoa.di.madgik.resourcecatalogue.service.AuthoritiesMapper;
-import gr.uoa.di.madgik.resourcecatalogue.service.CatalogueService;
-import gr.uoa.di.madgik.resourcecatalogue.service.ProviderService;
+import gr.uoa.di.madgik.resourcecatalogue.service.OrganisationService;
 import gr.uoa.di.madgik.resourcecatalogue.service.SecurityService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -42,7 +42,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+@Profile("!no-auth")
 @Component
 public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 
@@ -50,27 +52,24 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
     private Set<String> providerUsers = new HashSet<>();
     private Set<String> catalogueUsers = new HashSet<>();
     private final Map<String, Set<SimpleGrantedAuthority>> adminsAndEpot = new HashMap<>();
-    private final int maxQuantity;
 
-    private final ProviderService providerService;
+    private final OrganisationService organisationService;
 
-    private final CatalogueService catalogueService;
+//    private final CatalogueService catalogueService;
     private final SecurityService securityService;
     private final CatalogueProperties catalogueProperties;
 
 
     private final ReentrantLock lock = new ReentrantLock();
 
-    public InMemoryAuthoritiesMapper(@Value("${elastic.index.max_result_window:10000}") int maxQuantity,
-                                     CatalogueProperties catalogueProperties,
-                                     ProviderService manager,
-                                     CatalogueService catalogueService,
+    public InMemoryAuthoritiesMapper(CatalogueProperties catalogueProperties,
+                                     OrganisationService manager,
+//                                     CatalogueService catalogueService,
                                      SecurityService securityService) {
         this.catalogueProperties = catalogueProperties;
-        this.providerService = manager;
-        this.catalogueService = catalogueService;
+        this.organisationService = manager;
+//        this.catalogueService = catalogueService;
         this.securityService = securityService;
-        this.maxQuantity = maxQuantity;
         if (catalogueProperties.getAdmins().isEmpty()) {
             throw new ServiceException("No Admins Provided");
         }
@@ -122,26 +121,27 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
         long time = System.nanoTime();
         FacetFilter ff = new FacetFilter();
         ff.addFilter("published", false);
-        ff.setQuantity(maxQuantity);
+        ff.setQuantity(Integer.MAX_VALUE);
 
-        List<ProviderBundle> providers = new ArrayList<>();
+        List<OrganisationBundle> providers = new ArrayList<>();
         try {
-            providers.addAll(providerService.getAll(ff, securityService.getAdminAccess()).getResults());
+            providers.addAll(organisationService.getAll(ff).getResults());
         } catch (Exception e) {
             logger.warn("There are no Provider entries in DB");
         }
 
-        List<CatalogueBundle> catalogues = new ArrayList<>();
-        ff.getFilter().remove("published");
-        try {
-            catalogues.addAll(catalogueService.getAll(ff, securityService.getAdminAccess()).getResults());
-        } catch (Exception e) {
-            logger.warn("There are no Catalogue entries in DB");
-        }
+        //FIXME
+//        List<CatalogueBundle> catalogues = new ArrayList<>();
+//        ff.getFilter().remove("published");
+//        try {
+//            catalogues.addAll(catalogueService.getAll(ff, securityService.getAdminAccess()).getResults());
+//        } catch (Exception e) {
+//            logger.warn("There are no Catalogue entries in DB");
+//        }
 
         lock.lock();
         providerUsers = getProviderUserEmails(providers);
-        catalogueUsers = getCatalogueUserEmails(catalogues);
+//        catalogueUsers = getCatalogueUserEmails(catalogues); //FIXME
         lock.unlock();
         logger.debug("Update Authorities took {} ms", (System.nanoTime() - time) / 1000000);
     }
@@ -178,29 +178,44 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
         return authorities;
     }
 
-    private Set<String> getProviderUserEmails(List<ProviderBundle> providerBundles) {
-        return providerBundles
-                .stream()
-                .flatMap(p -> (p.getProvider().getUsers() != null ? p.getProvider().getUsers() : new ArrayList<User>())
-                        .stream()
-                        .filter(Objects::nonNull)
-                        .map(User::getEmail)
-                        .filter(Objects::nonNull)
-                        .map(String::toLowerCase))
-                .filter(u -> u != null && !Objects.equals("", u))
+    private Set<String> getProviderUserEmails(List<OrganisationBundle> organisationBundles) {
+        return organisationBundles.stream()
+                .flatMap(pb -> {
+                    Object usersObj = pb.getOrganisation().get("users");
+                    if (!(usersObj instanceof List<?> users)) {
+                        return Stream.empty();
+                    }
+                    return users.stream();
+                })
+                .filter(obj -> obj instanceof Map<?, ?>)
+                .map(obj -> mapToUser((Map<?, ?>) obj))
+                .map(User::getEmail)
+                .filter(email -> email != null && !email.isBlank())
+                .map(String::toLowerCase)
                 .collect(Collectors.toSet());
     }
 
-    private Set<String> getCatalogueUserEmails(List<CatalogueBundle> catalogueBundles) {
-        return catalogueBundles
-                .stream()
-                .flatMap(p -> (p.getCatalogue().getUsers() != null ? p.getCatalogue().getUsers() : new ArrayList<User>())
-                        .stream()
-                        .filter(Objects::nonNull)
-                        .map(User::getEmail)
-                        .map(String::toLowerCase))
-                .collect(Collectors.toSet());
+
+    private User mapToUser(Map<?, ?> userMap) {
+        User user = new User();
+        user.setId((String) userMap.get("id"));
+        user.setName((String) userMap.get("name"));
+        user.setSurname((String) userMap.get("surname"));
+        user.setEmail((String) userMap.get("email"));
+        return user;
     }
+
+      //FIXME
+//    private Set<String> getCatalogueUserEmails(List<CatalogueBundle> catalogueBundles) {
+//        return catalogueBundles
+//                .stream()
+//                .flatMap(p -> (p.getCatalogue().getUsers() != null ? p.getCatalogue().getUsers() : new ArrayList<User>())
+//                        .stream()
+//                        .filter(Objects::nonNull)
+//                        .map(User::getEmail)
+//                        .map(String::toLowerCase))
+//                .collect(Collectors.toSet());
+//    }
 
     private void mergeRoles(Map<String, Set<SimpleGrantedAuthority>> roles, Map<String, SimpleGrantedAuthority> newRoles) {
         for (Map.Entry<String, SimpleGrantedAuthority> role : newRoles.entrySet()) {
@@ -210,6 +225,7 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
     }
 
     @EventListener
+    @Order(2)
     public void onPropertyChange(PropertyChangeEvent event) {
         if ("catalogue.admins".equals(event.getPropertyName())
                 || "catalogue.onboarding-team".equals(event.getPropertyName())) {
@@ -219,11 +235,19 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 
     private void updateAdminsAndEpot() {
         adminsAndEpot.clear();
-        for (String admin : catalogueProperties.getAdmins()) {
-            adminsAndEpot.put(admin, Set.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
-        }
-        for (String epot : catalogueProperties.getOnboardingTeam()) {
-            adminsAndEpot.put(epot, Set.of(new SimpleGrantedAuthority("ROLE_EPOT")));
-        }
+        mergeRoles(adminsAndEpot, catalogueProperties.getOnboardingTeam()
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toMap(
+                        Function.identity(),
+                        e -> new SimpleGrantedAuthority("ROLE_EPOT"))
+                ));
+        mergeRoles(adminsAndEpot, catalogueProperties.getAdmins()
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toMap(
+                        Function.identity(),
+                        a -> new SimpleGrantedAuthority("ROLE_ADMIN"))
+                ));
     }
 }

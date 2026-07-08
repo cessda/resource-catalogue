@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,20 +23,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.OAuth2AuthorizeRequest;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -46,7 +38,7 @@ import java.util.Map;
 
 @Profile("beyond")
 @RestController
-@RequestMapping({"helpdesk"})
+@RequestMapping(path = "helpdesk", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "helpdesk")
 public class HelpdeskController {
 
@@ -69,7 +61,7 @@ public class HelpdeskController {
     }
 
     @Operation(summary = "Returns a specific ticket for the authenticated user.")
-    @GetMapping(path = "tickets/{ticketId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = "tickets/{ticketId}")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Object> getTicket(@PathVariable("ticketId") String ticketId,
                                             @Parameter(hidden = true) Authentication authentication) {
@@ -99,7 +91,7 @@ public class HelpdeskController {
 
 
     @Operation(summary = "Returns all tickets for the authenticated user.")
-    @GetMapping(path = "tickets", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = "tickets")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Object> getAllTickets(@Parameter(hidden = true) Authentication authentication) {
         if (webClient == null) {
@@ -126,7 +118,7 @@ public class HelpdeskController {
 
 
     @Operation(summary = "Submit a ticket.")
-    @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Object> submitTicket(@RequestBody Map<String, Object> ticketData,
                                                @Parameter(hidden = true) Authentication authentication) {
@@ -153,7 +145,7 @@ public class HelpdeskController {
     }
 
     @Operation(summary = "Update a ticket.")
-    @PutMapping(path = "tickets/{ticketId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(path = "tickets/{ticketId}")
     @PreAuthorize("hasRole('ROLE_USER')")
     public ResponseEntity<Object> updateTicket(@PathVariable("ticketId") String ticketId,
                                                @RequestBody Map<String, Object> ticketData,

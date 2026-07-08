@@ -3,7 +3,7 @@
     <parent>
         <groupId>gr.uoa.di.madgik</groupId>
         <artifactId>resource-catalogue</artifactId>
-        <version>5.4.0</version>
+        <version>6.2.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -34,7 +34,20 @@
                     <groupId>gr.uoa.di.madgik</groupId>
                     <artifactId>resource-catalogue-model</artifactId>
                 </dependency>
-        </dependencies>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/service/ProviderService.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
         <profile>
             <id>lot1</id>
@@ -44,6 +57,26 @@
                     <artifactId>resource-catalogue-model-lot1</artifactId>
                 </dependency>
             </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/service/AdapterService.java</exclude>
+                                <exclude>**/service/CatalogueService.java</exclude>
+                                <exclude>**/service/ConfigurationTemplateService.java</exclude>
+                                <exclude>**/service/ConfigurationTemplateInstanceService.java</exclude>
+                                <exclude>**/service/DeployableApplicationService.java</exclude>
+                                <exclude>**/service/OrganisationService.java</exclude>
+                                <exclude>**/service/ResourceInteroperabilityRecordService.java</exclude>
+                                <exclude>**/utils/CSVService.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 
@@ -55,6 +88,11 @@
         <dependency>
             <groupId>gr.uoa.di.madgik</groupId>
             <artifactId>registry-core-helper</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>gr.uoa.di.madgik</groupId>
+            <artifactId>eosc-node-endpoint-client</artifactId>
+            <version>1.0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -72,6 +110,10 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
         </dependency>
     </dependencies>
     <build>

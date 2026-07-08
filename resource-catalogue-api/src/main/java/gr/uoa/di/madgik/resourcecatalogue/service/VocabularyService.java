@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,13 @@ public interface VocabularyService extends ResourceService<Vocabulary> {
     Vocabulary getParent(String id);
 
     /**
+     *
+     * @param parentId Parent Vocabulary ID
+     * @return {@link List<Vocabulary>}
+     */
+    List<Vocabulary> getChildren(String parentId);
+
+    /**
      * Get all Vocabularies by type in a Map.
      *
      * @return {@link Map}&lt;{@link Vocabulary.Type}, {@link List}&lt;{@link Vocabulary}&gt;&gt;
@@ -66,13 +73,6 @@ public interface VocabularyService extends ResourceService<Vocabulary> {
     List<Vocabulary> getByType(Vocabulary.Type type);
 
     /**
-     * Get all Vocabularies in a Map.
-     *
-     * @return {@link Map}&lt;{@link String}, {@link Vocabulary}&gt;
-     */
-    Map<String, Vocabulary> getVocabulariesMap();
-
-    /**
      * Deletes all Vocabularies.
      */
     void deleteAll(Authentication auth);
@@ -83,12 +83,4 @@ public interface VocabularyService extends ResourceService<Vocabulary> {
      * @param type Vocabulary.Type
      */
     void deleteByType(Vocabulary.Type type);
-
-    /**
-     * Returns a Tree of parents and children for a specific Vocabulary Type
-     *
-     * @param type Vocabulary Type
-     * @return {@link VocabularyTree}
-     */
-    VocabularyTree getVocabulariesTree(Vocabulary.Type type);
 }

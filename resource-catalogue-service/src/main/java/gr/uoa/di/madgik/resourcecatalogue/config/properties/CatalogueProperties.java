@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package gr.uoa.di.madgik.resourcecatalogue.config.properties;
 
 import gr.uoa.di.madgik.resourcecatalogue.config.dynamicproperties.PropertyChangeEvent;
 import gr.uoa.di.madgik.resourcecatalogue.domain.ResourceTypes;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.Arrays;
@@ -39,20 +41,6 @@ import java.util.stream.Collectors;
 public class CatalogueProperties {
 
     private static final Logger logger = LoggerFactory.getLogger(CatalogueProperties.class);
-
-    /**
-     * Catalogue ID.
-     */
-    @NotNull
-    @NotEmpty
-    private String id;
-
-    /**
-     * Catalogue name.
-     */
-    @NotNull
-    @NotEmpty
-    private String name;
 
     /**
      * Catalogue Admins.
@@ -88,6 +76,7 @@ public class CatalogueProperties {
     /**
      * Catalogue resources properties
      */
+    @Valid
     private Map<ResourceTypes, ResourceProperties> resources = new HashMap<>();
 
     /**
@@ -107,6 +96,7 @@ public class CatalogueProperties {
     }
 
     @EventListener
+    @Order(1)
     public void onPropertyChange(PropertyChangeEvent event) {
         if ("catalogue.admins".equals(event.getPropertyName())) {
             String newAdmins = event.getNewValue();
@@ -173,24 +163,6 @@ public class CatalogueProperties {
         return this;
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public CatalogueProperties setId(String id) {
-        this.id = id;
-        return this;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public CatalogueProperties setName(String name) {
-        this.name = name;
-        return this;
-    }
-
     public EmailProperties getEmails() {
         return emails;
     }
@@ -218,7 +190,7 @@ public class CatalogueProperties {
 
     public ResourceProperties getResourcePropertiesFromPrefix(String prefix) {
         for (ResourceProperties rp : resources.values()) {
-            if (rp.getIdPrefix().equals(prefix)) {
+            if (prefix.equals(rp.getIdPrefix())) {
                 return rp;
             }
         }
@@ -227,7 +199,7 @@ public class CatalogueProperties {
 
     public String getResourceTypeFromPrefix(String prefix) {
         for (Map.Entry<ResourceTypes, ResourceProperties> rp : resources.entrySet()) {
-            if (rp.getValue().getIdPrefix().equals(prefix)) {
+            if (prefix.equals(rp.getValue().getIdPrefix())) {
                 return rp.getKey().toString();
             }
         }

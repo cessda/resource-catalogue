@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,24 +18,31 @@ package gr.uoa.di.madgik.resourcecatalogue.integration;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+
+import java.time.Duration;
 
 @Testcontainers
-class IntegrationTestConfig {
+public class IntegrationTestConfig {
 
     @Container
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+    static final PostgreSQLContainer postgres = new PostgreSQLContainer("pgvector/pgvector:pg16")
             .withDatabaseName("registry")
             .withUsername("test")
             .withPassword("test");
 
     @Container
     static final ElasticsearchContainer elastic =
-            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.17.23")
+            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:9.4.2")
                     .withPassword("password")
+                    .withStartupTimeout(Duration.ofMinutes(5))
+                    .withEnv("discovery.type", "single-node")
+                    .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
+                    .withEnv("node.store.allow_mmap", "false")
+                    .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
                     // disable SSL
                     .withEnv("xpack.security.transport.ssl.enabled", "false")
                     .withEnv("xpack.security.http.ssl.enabled", "false");
@@ -47,11 +54,19 @@ class IntegrationTestConfig {
 
     @DynamicPropertySource
     static void configure(DynamicPropertyRegistry registry) {
+        // Registry datasource
         registry.add("registry.datasource.url", postgres::getJdbcUrl);
         registry.add("registry.datasource.username", postgres::getUsername);
         registry.add("registry.datasource.password", postgres::getPassword);
+
+        // Registry elastic
         registry.add("registry.elasticsearch.uris", elastic::getHttpHostAddress);
         registry.add("registry.elasticsearch.username", () -> "elastic");
         registry.add("registry.elasticsearch.password", () -> "password");
+
+        // Flowable datasource
+        registry.add("flowable.datasource.url", postgres::getJdbcUrl);
+        registry.add("flowable.datasource.username", postgres::getUsername);
+        registry.add("flowable.datasource.password", postgres::getPassword);
     }
 }

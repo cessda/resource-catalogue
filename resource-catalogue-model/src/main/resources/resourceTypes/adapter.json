@@ -6,91 +6,266 @@
       "name": "resource_internal_id",
       "path": "$.adapter.id",
       "primaryKey": true,
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Catalogue ID",
+      "multivalued": false,
+      "name": "catalogue_id",
+      "path": "$.catalogueId",
+      "type": "java.lang.String",
+      "relatedResourceType": "catalogue",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Urls",
+      "multivalued": true,
+      "name": "urls",
+      "path": "$.adapter.urls[*]",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": "Adapter Name",
       "multivalued": false,
       "name": "name",
       "path": "$.adapter.name",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
-      "label": "Catalogue ID",
+      "label": "Description",
       "multivalued": false,
-      "name": "catalogue_id",
-      "path": "$.adapter.catalogueId",
-      "type": "java.lang.String"
+      "name": "description",
+      "path": "$.adapter.description",
+      "type": "java.lang.String",
+      "searchCapabilities": ["TEXT"],
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Alternative PIDs",
+      "multivalued": true,
+      "name": "alternative_pids",
+      "path": "$.adapter.alternativePIDs[*].pid",
+      "type": "java.lang.String",
+      "embeddingWeight": 1.0
     },
     {
       "label": "Node",
       "multivalued": false,
       "name": "node",
-      "path": "$.adapter.node",
-      "type": "java.lang.String"
+      "path": "$.adapter.nodePID",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Type",
+      "multivalued": false,
+      "name": "type",
+      "path": "$.adapter.type",
+      "type": "java.lang.String",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Resource Owner",
+      "multivalued": false,
+      "name": "resource_owner",
+      "path": "$.adapter.resourceOwner",
+      "type": "java.lang.String",
+      "relatedResourceType": "organisation",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": "Linked Resource ID",
       "multivalued": false,
       "name": "linked_resource_id",
       "path": "$.adapter.linkedResource.id",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "relatedResourceType": "linkedResources",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": "Linked Resource Type",
       "multivalued": false,
       "name": "linked_resource_type",
       "path": "$.adapter.linkedResource.type",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Documentation",
+      "multivalued": false,
+      "name": "documentation",
+      "path": "$.adapter.documentation",
+      "type": "java.lang.String",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Software Repository",
+      "multivalued": false,
+      "name": "software_repository",
+      "path": "$.adapter.softwareRepository",
+      "type": "java.lang.String",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Package",
+      "multivalued": false,
+      "name": "package",
+      "path": "$.adapter.package",
+      "type": "java.lang.String",
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "Programming Language",
+      "multivalued": false,
+      "name": "programming_language",
+      "path": "$.adapter.programmingLanguage",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
+    },
+    {
+      "label": "License",
+      "multivalued": false,
+      "name": "license",
+      "path": "$.adapter.license.licenseName",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Adapter Version",
+      "multivalued": false,
+      "name": "adapter_version",
+      "path": "$.adapter.version",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Changelog",
+      "multivalued": false,
+      "name": "changelog",
+      "path": "$.adapter.changelog",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": true,
-      "name": "admins",
-      "path": "$.adapter.admins[*].email",
-      "type": "java.lang.String"
+      "name": "creators",
+      "path": "$.adapter.creators[*].email",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Creator Role",
+      "multivalued": true,
+      "name": "creators_role",
+      "path": "$.adapter.creators[*].role",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "SQA Badge",
+      "multivalued": false,
+      "name": "sqa_badge",
+      "path": "$.adapter.sqa.sqaBadge",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": null,
+      "multivalued": true,
+      "name": "users",
+      "path": "$.adapter.users[*].email",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "registeredBy",
       "path": "$.metadata.registeredBy",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "modifiedBy",
       "path": "$.metadata.modifiedBy",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "registeredAt",
       "path": "$.metadata.registeredAt",
-      "type": "java.util.Date"
+      "type": "java.time.Instant",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "modifiedAt",
       "path": "$.metadata.modifiedAt",
-      "type": "java.util.Date"
+      "type": "java.time.Instant",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "originalId",
       "path": "$.identifiers.originalId",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": null,
+      "multivalued": false,
+      "name": "pid",
+      "path": "$.identifiers.pid",
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": null,
+      "multivalued": false,
+      "name": "externalId",
+      "path": "$.identifiers.externalId",
+      "type": "java.lang.String",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "status",
       "path": "$.status",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 0.0
     },
     {
       "defaultValue": "false",
@@ -98,98 +273,112 @@
       "multivalued": false,
       "name": "active",
       "path": "$.active",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "published",
       "path": "$.metadata.published",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestAuditActionType",
       "path": "$.latestAuditInfo.actionType",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestAuditDate",
       "path": "$.latestAuditInfo.date",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestAuditType",
       "path": "$.latestAuditInfo.type",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestAuditUserEmail",
       "path": "$.latestAuditInfo.userEmail",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestUpdateActionType",
       "path": "$.latestUpdateInfo.actionType",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestUpdateDate",
       "path": "$.latestUpdateInfo.date",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestUpdateType",
       "path": "$.latestUpdateInfo.type",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestUpdateUserEmail",
       "path": "$.latestUpdateInfo.userEmail",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestOnboardingActionType",
       "path": "$.latestOnboardingInfo.actionType",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestOnboardingDate",
       "path": "$.latestOnboardingInfo.date",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestOnboardingType",
       "path": "$.latestOnboardingInfo.type",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "latestOnboardingUserEmail",
       "path": "$.latestOnboardingInfo.userEmail",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "defaultValue": "false",
@@ -197,24 +386,38 @@
       "multivalued": false,
       "name": "suspended",
       "path": "$.suspended",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
+    },
+    {
+      "defaultValue": "false",
+      "label": null,
+      "multivalued": false,
+      "name": "draft",
+      "path": "$.draft",
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "audit_state",
       "path": "$.auditState",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 0.0
     }
   ],
   "indexMapperClass": "gr.uoa.di.madgik.registry.index.DefaultIndexMapper",
   "aliases": [
-    "resourceTypes"
+    "resourceTypes",
+    "eoscResources"
   ],
   "name": "adapter",
   "payloadType": "json",
   "properties": {
     "class": "gr.uoa.di.madgik.resourcecatalogue.domain.AdapterBundle"
   },
-  "schema": "{\n\t\"$schema\": \"https://json-schema.org/draft/2019-09/schema\"\n}"
+  "schema": "{\n\t\"$schema\": \"http://json-schema.org/draft-07/schema#\",\n\t\"type\": \"object\"\n}"
 }

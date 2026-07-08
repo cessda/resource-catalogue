@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers.publicresources;
 
+import gr.uoa.di.madgik.registry.service.GenericResourceService;
 import gr.uoa.di.madgik.registry.exception.ResourceNotFoundException;
 import gr.uoa.di.madgik.resourcecatalogue.domain.Bundle;
-import gr.uoa.di.madgik.catalogue.service.GenericResourceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.context.annotation.Profile;
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 
 @Profile("beyond")
 @RestController
-@RequestMapping
+@RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "public", description = "General methods related to Public resources")
 public class PublicController {
 
@@ -46,7 +46,7 @@ public class PublicController {
         this.genericService = genericService;
     }
 
-    @Operation(summary = "Fetch resources by IDs and resourceTypes (defaults to 'service', 'training_resource').")
+    @Operation(summary = "Fetch resources by IDs and resourceTypes (defaults to 'service', 'datasource', 'training_resource').")
     @GetMapping(path = "public/resources/ids",
             produces = {MediaType.APPLICATION_JSON_VALUE})
     public ResponseEntity<List<?>> getSomeResources(@RequestParam("ids") String[] ids,
@@ -54,7 +54,7 @@ public class PublicController {
                                                     List<String> resourceTypes) {
 
         if (resourceTypes == null || resourceTypes.isEmpty()) {
-            resourceTypes = List.of("service", "training_resource");
+            resourceTypes = List.of("service", "datasource", "training_resource");
         }
 
         List<Object> someResources = new ArrayList<>();
@@ -62,14 +62,15 @@ public class PublicController {
             for (String resourceType : resourceTypes) {
                 try {
                     someResources.add(genericService.get(resourceType, id));
-                } catch (ResourceNotFoundException ignored) {
+                } catch (ResourceNotFoundException _) {
+                    // ignored
                 }
             }
         }
 
         List<?> ret = someResources.stream()
-                .map(r -> ((Bundle<?>) r).getPayload())
-                .collect(Collectors.toList());
+                .map(r -> ((Bundle) r).toPublicMap())
+                .toList();
 
         return new ResponseEntity<>(ret, HttpStatus.OK);
     }

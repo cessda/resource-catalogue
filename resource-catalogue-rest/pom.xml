@@ -3,7 +3,7 @@
     <parent>
         <groupId>gr.uoa.di.madgik</groupId>
         <artifactId>resource-catalogue</artifactId>
-        <version>5.4.0</version>
+        <version>6.2.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,61 @@
             <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
+    <profiles>
+        <profile>
+            <id>beyond</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/controllers/lot1/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>lot1</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/controllers/MailController.java</exclude>
+                                <exclude>**/controllers/WizardController.java</exclude>
+                                <exclude>**/controllers/StatisticsController.java</exclude>
+                                <exclude>**/controllers/registry/AdapterController.java</exclude>
+                                <exclude>**/controllers/registry/ConfigurationTemplateController.java</exclude>
+                                <exclude>**/controllers/registry/ConfigurationTemplateInstanceController.java</exclude>
+                                <exclude>**/controllers/registry/CSVController.java</exclude>
+                                <exclude>**/controllers/registry/DeployableApplicationController.java</exclude>
+                                <exclude>**/controllers/registry/OrganisationController.java</exclude>
+                                <exclude>**/controllers/registry/CatalogueController.java</exclude>
+                                <exclude>**/controllers/registry/DatasourceController.java</exclude>
+                                <exclude>**/controllers/registry/InteroperabilityRecordController.java</exclude>
+                                <exclude>**/controllers/registry/ResourceInteroperabilityRecordController.java</exclude>
+                                <exclude>**/controllers/registry/SecureResponseAdvice.java</exclude>
+                                <exclude>**/controllers/registry/ServiceController.java</exclude>
+                                <exclude>**/controllers/registry/TrainingResourceController.java</exclude>
+                                <exclude>**/controllers/registry/sqaaas/**.java</exclude>
+                                <exclude>**/controllers/publicresources/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
     <dependencies>
         <dependency>
             <groupId>gr.uoa.di.madgik</groupId>
@@ -50,6 +105,10 @@
             <artifactId>spring-security-core</artifactId>
         </dependency>
         <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
         </dependency>
@@ -76,6 +135,11 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+<!--                    <compilerArgs>&#45;&#45;enable-preview</compilerArgs>-->
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

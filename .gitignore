@@ -10,6 +10,7 @@ target/
 *.log
 
 .*
+!.env.example
 
 # Log folders
 **/logs
@@ -37,3 +38,15 @@ hs_err_pid*
 **/*.properties
 **/*.yml
 **/*.yaml
+!compose/compose.yaml
+
+# claude code
+.claude/
+CLAUDE.md
+SUMMARY.md
+
+# extras
+log4j2.xml
+
+# scripts
+debug.sh

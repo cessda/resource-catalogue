@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,884 +19,1459 @@ package gr.uoa.di.madgik.resourcecatalogue.controllers.registry;
 import gr.uoa.di.madgik.registry.annotation.BrowseParameters;
 import gr.uoa.di.madgik.registry.domain.FacetFilter;
 import gr.uoa.di.madgik.registry.domain.Paging;
-import gr.uoa.di.madgik.registry.exception.ResourceException;
+import gr.uoa.di.madgik.registry.service.SearchService;
+import gr.uoa.di.madgik.resourcecatalogue.annotations.BrowseCatalogue;
 import gr.uoa.di.madgik.resourcecatalogue.domain.*;
+import gr.uoa.di.madgik.resourcecatalogue.dto.CatalogueResources;
 import gr.uoa.di.madgik.resourcecatalogue.service.*;
-import gr.uoa.di.madgik.catalogue.service.GenericResourceService;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import gr.uoa.di.madgik.resourcecatalogue.config.AuditingProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.HandlerMapping;
 
-import java.util.LinkedList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Profile("beyond")
 @RestController
-@RequestMapping("catalogue")
+@RequestMapping(path = "catalogue", produces = {MediaType.APPLICATION_JSON_VALUE})
 @Tag(name = "catalogue", description = "Operations about Catalogues and their resources")
-public class CatalogueController {
+public class CatalogueController extends ResourceCatalogueGenericController<CatalogueBundle, CatalogueService> {
 
     private static final Logger logger = LoggerFactory.getLogger(CatalogueController.class);
-    private final CatalogueService catalogueManager;
-    private final ProviderService providerManager;
-    private final ServiceBundleService<ServiceBundle> serviceBundleService;
-    private final DeployableServiceService deployableServiceService;
+
+    private final OrganisationService organisationService;
+    private final ServiceService serviceService;
     private final DatasourceService datasourceService;
+    private final AdapterService adapterService;
     private final TrainingResourceService trainingResourceService;
-    private final InteroperabilityRecordService interoperabilityRecordService;
-    private final GenericResourceService genericResourceService;
+    private final InteroperabilityRecordService guidelineService;
+    private final DeployableApplicationService deployableApplicationService;
 
-    @Value("${catalogue.id}")
-    private String catalogueId;
+    @Autowired
+    SecurityService securityService;
 
-    CatalogueController(CatalogueService catalogueManager,
-                        ProviderService providerManager,
-                        ServiceBundleService<ServiceBundle> serviceBundleService,
-                        DeployableServiceService deployableServiceService,
+    @Autowired
+    private AuditingProperties auditingProperties;
+
+    CatalogueController(CatalogueService catalogueService,
+                        OrganisationService organisationService,
+                        ServiceService serviceService,
                         DatasourceService datasourceService,
+                        AdapterService adapterService,
                         TrainingResourceService trainingResourceService,
-                        InteroperabilityRecordService interoperabilityRecordService,
-                        GenericResourceService genericResourceService) {
-        this.catalogueManager = catalogueManager;
-        this.providerManager = providerManager;
-        this.serviceBundleService = serviceBundleService;
-        this.deployableServiceService = deployableServiceService;
+                        InteroperabilityRecordService guidelineService,
+                        DeployableApplicationService deployableApplicationService) {
+        super(catalogueService, "Catalogue");
+        this.organisationService = organisationService;
+        this.serviceService = serviceService;
         this.datasourceService = datasourceService;
+        this.adapterService = adapterService;
         this.trainingResourceService = trainingResourceService;
-        this.interoperabilityRecordService = interoperabilityRecordService;
-        this.genericResourceService = genericResourceService;
+        this.guidelineService = guidelineService;
+        this.deployableApplicationService = deployableApplicationService;
     }
 
     //region Catalogue
     @Operation(summary = "Returns the Catalogue with the given id.")
-    @GetMapping(path = "{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Catalogue> getCatalogue(@PathVariable("id") String id,
-                                                  @Parameter(hidden = true) Authentication auth) {
-        Catalogue catalogue = catalogueManager.get(id, auth).getCatalogue();
-        return new ResponseEntity<>(catalogue, HttpStatus.OK);
+    @GetMapping(path = "{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.isResourceAdmin(#auth, #prefix+'/'+#suffix) or " +
+            "@securityService.catalogueIsActive(#prefix+'/'+#suffix)")
+    public ResponseEntity<?> get(@PathVariable String prefix,
+                                 @PathVariable String suffix,
+                                 @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.get(id);
+        return new ResponseEntity<>(bundle.getCatalogue(), HttpStatus.OK);
     }
 
-    @Operation(summary = "Creates a new Catalogue.")
-    @PostMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<Catalogue> addCatalogue(@RequestBody Catalogue catalogue,
-                                                  @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogueBundle = catalogueManager.add(new CatalogueBundle(catalogue), auth);
-        logger.info("Added the Catalogue with name '{}' and id '{}'", catalogue.getName(), catalogue.getId());
-        return new ResponseEntity<>(catalogueBundle.getCatalogue(), HttpStatus.CREATED);
+    @GetMapping(path = "/bundle/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #prefix+'/'+#suffix)")
+    public ResponseEntity<CatalogueBundle> getBundle(@PathVariable String prefix,
+                                                     @PathVariable String suffix,
+                                                     @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.get(id);
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
     }
 
-    @Hidden
-    @Operation(summary = "Creates a new Catalogue Bundle.")
-    @PostMapping(path = "/bundle", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<CatalogueBundle> addCatalogueBundle(@RequestBody CatalogueBundle catalogue,
-                                                              @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogueBundle = catalogueManager.add(catalogue, auth);
-        logger.info("Added the Catalogue with name '{}' and id '{}'",
-                catalogueBundle.getCatalogue().getName(), catalogue.getId());
-        return new ResponseEntity<>(catalogueBundle, HttpStatus.CREATED);
-    }
-
-    @Operation(summary = "Updates a specific Catalogue.")
-    @PutMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth,#catalogue.id)")
-    public ResponseEntity<Catalogue> updateCatalogue(@RequestBody Catalogue catalogue,
-                                                     @RequestParam(required = false) String comment,
-                                                     @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogueBundle = catalogueManager.get(catalogue.getId(), auth);
-        catalogueBundle.setCatalogue(catalogue);
-        if (comment == null || comment.isEmpty()) {
-            comment = "no comment";
-        }
-        catalogueBundle = catalogueManager.update(catalogueBundle, comment, auth);
-        logger.info("Updated the Catalogue with name '{}' and id '{}'", catalogue.getName(), catalogue.getId());
-        return new ResponseEntity<>(catalogueBundle.getCatalogue(), HttpStatus.OK);
-    }
-
-    @Hidden
-    @Operation(summary = "Updates a specific Catalogue Bundle.")
-    @PutMapping(path = "/bundle", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<CatalogueBundle> updateCatalogueBundle(@RequestBody CatalogueBundle catalogue,
-                                                                 @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogueBundle = catalogueManager.update(catalogue, auth);
-        logger.info("Updated the Catalogue with name '{}' and id '{}'",
-                catalogueBundle.getCatalogue().getName(), catalogue.getId());
-        return new ResponseEntity<>(catalogueBundle, HttpStatus.OK);
+    @Operation(summary = "Get a list of Catalogues based on a list of filters.")
+    @BrowseParameters
+    @BrowseCatalogue
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "all")
+    public ResponseEntity<Paging<?>> getAll(@Parameter(hidden = true)
+                                            @RequestParam MultiValueMap<String, Object> params,
+                                            @Parameter(hidden = true) Authentication auth) {
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<CatalogueBundle> paging = service.getAll(ff, auth);
+        return ResponseEntity.ok(paging.map(CatalogueBundle::getCatalogue));
     }
 
     @BrowseParameters
-    @Operation(summary = "Get a list of all Catalogues in the Portal.")
-    @Parameter(name = "suspended", description = "Suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false")))
-    @GetMapping(path = "all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<Catalogue>> getAllCatalogues(@Parameter(hidden = true)
-                                                              @RequestParam MultiValueMap<String, Object> params,
-                                                              @Parameter(hidden = true) Authentication auth) {
+    @BrowseCatalogue
+    @Parameters({
+            @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true))),
+            @Parameter(name = "active", content = @Content(schema = @Schema(type = "boolean", defaultValue = "true")))
+    })
+    @GetMapping(path = "bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<CatalogueBundle>> getAllBundles(@Parameter(hidden = true)
+                                                                 @RequestParam MultiValueMap<String, Object> params) {
         FacetFilter ff = FacetFilter.from(params);
-        List<Catalogue> catalogueList = new LinkedList<>();
-        Paging<CatalogueBundle> catalogueBundlePaging = catalogueManager.getAll(ff, auth);
-        for (CatalogueBundle catalogueBundle : catalogueBundlePaging.getResults()) {
-            catalogueList.add(catalogueBundle.getCatalogue());
-        }
-        Paging<Catalogue> cataloguePaging = new Paging<>(catalogueBundlePaging.getTotal(), catalogueBundlePaging.getFrom(),
-                catalogueBundlePaging.getTo(), catalogueList, catalogueBundlePaging.getFacets());
-        return new ResponseEntity<>(cataloguePaging, HttpStatus.OK);
-    }
-
-    @Hidden
-    @Operation(summary = "Returns the Catalogue Bundle with the given id.")
-    @GetMapping(path = "bundle/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #id)")
-    public ResponseEntity<CatalogueBundle> getCatalogueBundle(@PathVariable("id") String id,
-                                                              @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(catalogueManager.get(id, auth), HttpStatus.OK);
-    }
-
-    @Operation(summary = "Returns a list of Catalogues where user is admin.")
-    @GetMapping(path = "getMyCatalogues", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<List<CatalogueBundle>> getMyCatalogues(@Parameter(hidden = true) Authentication auth) {
-        FacetFilter ff = new FacetFilter();
-        ff.setQuantity(1000);
-        return new ResponseEntity<>(catalogueManager.getMy(ff, auth).getResults(), HttpStatus.OK);
-    }
-
-    @Operation(summary = "Verifies the specific Catalogue.")
-    @PatchMapping(path = "verifyCatalogue/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<CatalogueBundle> verifyCatalogue(@PathVariable("id") String id,
-                                                           @RequestParam(required = false) Boolean active,
-                                                           @RequestParam(required = false) String status,
-                                                           @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogue = catalogueManager.verify(id, status, active, auth);
-        logger.info("Updated Catalogue with id: '{}' | status: '{}' | active: '{}'",
-                catalogue.getId(), status, active);
-        return new ResponseEntity<>(catalogue, HttpStatus.OK);
-    }
-
-    @Hidden
-    @Operation(summary = "Activates/Deactivates the specific Catalogue.")
-    @PatchMapping(path = "publish/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<CatalogueBundle> publish(@PathVariable("id") String id,
-                                                   @RequestParam(required = false) Boolean active,
-                                                   @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogue = catalogueManager.publish(id, active, auth);
-        logger.info("Updated Catalogue with id: '{}' | status: '{}' | active: '{}'",
-                catalogue.getId(), catalogue.getStatus(), active);
-        return new ResponseEntity<>(catalogue, HttpStatus.OK);
-    }
-
-    @Hidden
-    @BrowseParameters
-    @Operation(summary = "Get a list of all Catalogues Bundles in the Portal.")
-    @Parameter(name = "suspended", description = "Suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false")))
-    @GetMapping(path = "bundle/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<Paging<CatalogueBundle>> getAllCatalogueBundles(@Parameter(hidden = true)
-                                                                          @RequestParam MultiValueMap<String, Object> params) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("catalogue");
-        Paging<CatalogueBundle> paging = genericResourceService.getResults(ff);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<CatalogueBundle> paging = service.getAll(ff);
         return ResponseEntity.ok(paging);
     }
 
-    @Hidden
-    @Operation(summary = "Returns true if user has accepted terms.")
-    @GetMapping(path = "hasAdminAcceptedTerms", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public boolean hasAdminAcceptedTerms(@RequestParam String catalogueId, @Parameter(hidden = true) Authentication auth) {
-        return catalogueManager.hasAdminAcceptedTerms(catalogueId, auth);
+    @Operation(summary = "Returns all Catalogues of a User.")
+    @GetMapping(path = "getMy")
+    public ResponseEntity<List<CatalogueBundle>> getMy(@RequestParam(defaultValue = "false") boolean draft,
+                                                       @Parameter(hidden = true) Authentication auth) {
+        FacetFilter ff = new FacetFilter();
+        ff.addFilter("draft", draft);
+        return new ResponseEntity<>(service.getMy(ff, auth).getResults(), HttpStatus.OK);
     }
 
-    @Hidden
-    @Operation(summary = "Updates the terms inside the Catalogue with user's email.")
-    @PutMapping(path = "adminAcceptedTerms", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public void adminAcceptedTerms(@RequestParam String catalogueId, @Parameter(hidden = true) Authentication auth) {
-        catalogueManager.adminAcceptedTerms(catalogueId, auth);
+    @Operation(summary = "Get a random Paging of Catalogues")
+    @Parameters({
+            @Parameter(name = "quantity", description = "Quantity to be fetched", schema = @Schema(type = "string"))
+    })
+    @GetMapping(path = "random")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<CatalogueBundle>> getRandom(@RequestParam(defaultValue = "10") int quantity,
+                                                             @Parameter(hidden = true) Authentication auth) {
+        Paging<CatalogueBundle> paging = service.getRandomResourcesForAuditing(quantity, auditingProperties.getInterval(), auth);
+        return new ResponseEntity<>(paging, HttpStatus.OK);
     }
 
-    @Hidden
-    @Parameter(hidden = true)
-    @Operation(summary = "Deletes the Catalogue with the given id.")
-//    @DeleteMapping(path = "delete/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<Catalogue> deleteCatalogue(@PathVariable("id") String id,
-                                                     @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogueBundle = catalogueManager.get(id, auth);
-        if (catalogueBundle == null) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
-        catalogueManager.delete(catalogueBundle);
-        logger.info("Deleted the Catalogue with id '{}' and name '{} along with all its related Resources'",
-                catalogueBundle.getCatalogue().getId(), catalogueBundle.getCatalogue().getName());
-        return new ResponseEntity<>(catalogueBundle.getCatalogue(), HttpStatus.OK);
+    @Operation(summary = "Returns all resources belonging to the Catalogue with the given id.")
+    @GetMapping(path = "{prefix}/{suffix}/resources/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #prefix+'/'+#suffix)")
+    public ResponseEntity<CatalogueResources> getAllCatalogueResources(@PathVariable String prefix,
+                                                                       @PathVariable String suffix,
+                                                                       @SuppressWarnings("unused")
+                                                                       @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = prefix + "/" + suffix;
+        return ResponseEntity.ok(service.getAllCatalogueResources(catalogueId));
     }
 
-    @Operation(summary = "Suspends a Catalogue and all its resources.")
-    @PutMapping(path = "suspend", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public CatalogueBundle suspendCatalogue(@RequestParam String catalogueId, @RequestParam boolean suspend,
-                                            @Parameter(hidden = true) Authentication auth) {
-        if (catalogueId.equalsIgnoreCase(this.catalogueId)) {
-            throw new ResourceException(String.format("You cannot suspend the [%s] Catalogue", this.catalogueId),
-                    HttpStatus.CONFLICT);
-        }
-        return catalogueManager.suspend(catalogueId, catalogueId, suspend, auth);
+    @Operation(summary = "Adds a new Catalogue.")
+    @PostMapping()
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #catalogue, null)")
+    public ResponseEntity<?> add(@RequestBody LinkedHashMap<String, Object> catalogue,
+                                 @Parameter(hidden = true) Authentication auth) {
+        CatalogueBundle bundle = new CatalogueBundle();
+        bundle.setCatalogue(catalogue);
+        CatalogueBundle ret = service.add(bundle, auth);
+        logger.info("Added Catalogue with id '{}'", bundle.getId());
+        return new ResponseEntity<>(ret.getCatalogue(), HttpStatus.CREATED);
     }
 
-    @Operation(summary = "Audits a Catalogue.")
-    @PatchMapping(path = "auditCatalogue/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<CatalogueBundle> auditCatalogue(@PathVariable("id") String id,
-                                                          @RequestParam(required = false) String comment,
-                                                          @RequestParam LoggingInfo.ActionType actionType,
-                                                          @Parameter(hidden = true) Authentication auth) {
-        CatalogueBundle catalogue = catalogueManager.audit(id, id, comment, actionType, auth);
-        return new ResponseEntity<>(catalogue, HttpStatus.OK);
-    }
-
-    @Hidden
-    @Operation(description = "Add a bulk list of Catalogues.")
-    @PostMapping(path = "/addBulk", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @PostMapping(path = {"/bundle"})
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public void addBulk(@RequestBody List<CatalogueBundle> catalogueList, @Parameter(hidden = true) Authentication auth) {
-        catalogueManager.addBulk(catalogueList, auth);
+    public ResponseEntity<CatalogueBundle> addBundle(@RequestBody CatalogueBundle catalogueBundle,
+                                                     @Parameter(hidden = true) Authentication auth) {
+        CatalogueBundle bundle = service.add(catalogueBundle, auth);
+        logger.info("Added CatalogueBundle with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle, HttpStatus.CREATED);
+    }
+
+    @PostMapping(path = "/addBulk")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public void addBulk(@RequestBody List<CatalogueBundle> catalogueList,
+                        @Parameter(hidden = true) Authentication auth) {
+        service.addBulk(catalogueList, auth);
+    }
+
+    @Operation(summary = "Updates the Catalogue with the given id.")
+    @PutMapping()
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#catalogueMap['id'])")
+    public ResponseEntity<?> update(@RequestBody LinkedHashMap<String, Object> catalogueMap,
+                                    @RequestParam(required = false) String comment,
+                                    @Parameter(hidden = true) Authentication auth) {
+        String id = catalogueMap.get("id").toString();
+        CatalogueBundle bundle = service.get(id);
+        bundle.setCatalogue(catalogueMap);
+        bundle = service.update(bundle, comment, auth);
+        logger.info("Updated the Catalogue with id '{}'", catalogueMap.get("id"));
+        return new ResponseEntity<>(bundle.getCatalogue(), HttpStatus.OK);
+    }
+
+    @PutMapping(path = {"/bundle"})
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<CatalogueBundle> updateBundle(@RequestBody CatalogueBundle catalogueBundle,
+                                                        @RequestParam(required = false) String comment,
+                                                        @Parameter(hidden = true) Authentication auth) {
+        CatalogueBundle bundle = service.update(catalogueBundle, comment, auth);
+        logger.info("Updated the CatalogueBundle id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
+    }
+
+    @Operation(summary = "Deletes the Catalogue with the given id.")
+    @DeleteMapping(path = "{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #prefix+'/'+#suffix)")
+    public ResponseEntity<?> delete(@PathVariable String prefix,
+                                    @PathVariable String suffix,
+                                    @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.get(id);
+        service.delete(bundle);
+        logger.info("Deleted the Catalogue with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getCatalogue(), HttpStatus.OK);
+    }
+
+    @Operation(summary = "Verifies the Catalogue.")
+    @PatchMapping(path = "verify/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<CatalogueBundle> setStatus(@PathVariable String prefix,
+                                                     @PathVariable String suffix,
+                                                     @RequestParam(required = false) Boolean active,
+                                                     @RequestParam(required = false) String status,
+                                                     @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.verify(id, status, active, auth);
+        logger.info("Verify Catalogue with id: '{}' | status: '{}' | active: '{}'",
+                bundle.getId(), status, active);
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
+    }
+
+    @Operation(summary = "Activates/Deactivates the Catalogue.")
+    @PatchMapping(path = "setActive/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') " +
+            "or @securityService.resourceIsApprovedAndUserIsAdmin(#auth, #prefix+'/'+#suffix)")
+    public ResponseEntity<CatalogueBundle> setActive(@PathVariable String prefix,
+                                                     @PathVariable String suffix,
+                                                     @RequestParam Boolean active,
+                                                     @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.setActive(id, active, auth);
+        logger.info("Attempt to save Catalogue with id '{}' as '{}'", id, active);
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
+    }
+
+    @Operation(summary = "Audits the Catalogue.")
+    @PatchMapping(path = "audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<CatalogueBundle> audit(@PathVariable String prefix,
+                                                 @PathVariable String suffix,
+                                                 @RequestParam(required = false) String comment,
+                                                 @RequestParam LoggingInfo.ActionType actionType,
+                                                 @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.audit(id, null, comment, actionType, auth);
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
+    }
+
+    @Operation(summary = "Suspends a specific Catalogue.")
+    @PutMapping(path = "suspend")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public CatalogueBundle suspend(@RequestParam String id,
+                                   @RequestParam boolean suspend,
+                                   @Parameter(hidden = true) Authentication auth) {
+        return service.setSuspend(id, null, suspend, auth);
+    }
+
+    @Operation(summary = "Get the LoggingInfo History of a specific Catalogue.")
+    @GetMapping(path = {"loggingInfoHistory/{prefix}/{suffix}"})
+    public ResponseEntity<List<LoggingInfo>> loggingInfoHistory(@PathVariable String prefix,
+                                                                @PathVariable String suffix) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.get(id);
+        List<LoggingInfo> loggingInfoHistory = service.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
+    }
+
+    @Operation(summary = "Validates the Catalogue without actually changing the repository.")
+    @PostMapping(path = "validate")
+    public ResponseEntity<Void> validate(@RequestBody LinkedHashMap<String, Object> catalogueMap) {
+        CatalogueBundle bundle = new CatalogueBundle();
+        bundle.setCatalogue(catalogueMap);
+        service.validate(bundle);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @Operation(summary = "Get a list of Catalogues based on a set of ids.")
+    @GetMapping(path = "ids")
+    public ResponseEntity<List<LinkedHashMap<String, Object>>> getSome(@RequestParam("ids") String[] ids,
+                                                                       @Parameter(hidden = true) Authentication auth) {
+        return ResponseEntity.ok(service.getByIds(auth, ids)
+                .stream()
+                .map(CatalogueBundle::getCatalogue)
+                .collect(Collectors.toList()));
+    }
+
+    @BrowseParameters
+    @GetMapping(path = {
+            "byProvider/{prefix}/{suffix}",
+            "byOrganisation/{prefix}/{suffix}"
+    })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth,#id)")
+    public ResponseEntity<Paging<CatalogueBundle>> getByProvider(@Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> params,
+                                                                 @PathVariable String prefix,
+                                                                 @PathVariable String suffix,
+                                                                 @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        FacetFilter ff = FacetFilter.from(params);
+        return new ResponseEntity<>(service.getAllEOSCResourcesOfAProvider(id, ff, auth), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @BrowseCatalogue
+    @GetMapping(path = "inactive/all")
+    public ResponseEntity<Paging<?>> getInactive(@Parameter(hidden = true)
+                                                 @RequestParam MultiValueMap<String, Object> params) {
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("active", false);
+        return new ResponseEntity<>(service.getAll(ff), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @GetMapping(path = "getSharedResources/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth,#prefix+'/'+#suffix)")
+    public ResponseEntity<Paging<?>> getSharedResources(@Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> params,
+                                                        @PathVariable String prefix,
+                                                        @PathVariable String suffix,
+                                                        @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("service_providers", id);
+        ff.addFilter("published", false);
+        ff.addFilter("active", true);
+        return new ResponseEntity<>(service.getAll(ff, auth), HttpStatus.OK);
+    }
+
+    @GetMapping(path = {"sendEmailForOutdatedResource/{prefix}/{suffix}"})
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public void sendEmailNotificationToProviderForOutdatedService(@PathVariable String prefix,
+                                                                  @PathVariable String suffix,
+                                                                  @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        service.sendEmailNotificationToProviderForOutdatedEOSCResource(id, auth);
+    }
+
+    @GetMapping(path = "/draft/{prefix}/{suffix}")
+    public ResponseEntity<?> getDraft(@PathVariable String prefix,
+                                      @PathVariable String suffix) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle draft = service.get(
+                new SearchService.KeyValue("resource_internal_id", id),
+                new SearchService.KeyValue("published", "false"),
+                new SearchService.KeyValue("draft", "true")
+        );
+        return new ResponseEntity<>(draft.getCatalogue(), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @GetMapping(path = {
+            "draft/byProvider/{prefix}/{suffix}",
+            "draft/byOrganisation/{prefix}/{suffix}"
+    })
+    public ResponseEntity<Paging<CatalogueBundle>> getProviderDraftCatalogues(@PathVariable String prefix,
+                                                                              @PathVariable String suffix,
+                                                                              @Parameter(hidden = true)
+                                                                              @RequestParam MultiValueMap<String, Object> params,
+                                                                              @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("resource_owner", id);
+        ff.addFilter("draft", true);
+        return new ResponseEntity<>(service.getAll(ff, auth), HttpStatus.OK);
+    }
+
+    @PostMapping(path = "/draft")
+    @PreAuthorize("hasRole('ROLE_USER')")
+    public ResponseEntity<?> addDraft(@RequestBody LinkedHashMap<String, Object> catalogueMap,
+                                      @Parameter(hidden = true) Authentication auth) {
+        CatalogueBundle bundle = new CatalogueBundle();
+        bundle.setCatalogue(catalogueMap);
+        CatalogueBundle ret = service.addDraft(bundle, auth);
+        logger.info("Added Draft Catalogue with id '{}'", bundle.getId());
+        return new ResponseEntity<>(ret.getCatalogue(), HttpStatus.CREATED);
+    }
+
+    @PutMapping(path = "/draft")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #catalogueMap['id'])")
+    public ResponseEntity<?> updateDraft(@RequestBody LinkedHashMap<String, Object> catalogueMap,
+                                         @Parameter(hidden = true) Authentication auth) {
+        String id = (String) catalogueMap.get("id");
+        CatalogueBundle bundle = service.get(id);
+        bundle.setCatalogue(catalogueMap);
+        bundle = service.updateDraft(bundle, auth);
+        logger.info("Updated the Draft Catalogue with id '{}'", id);
+        return new ResponseEntity<>(bundle.getCatalogue(), HttpStatus.OK);
+    }
+
+    @DeleteMapping(path = "/draft/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #prefix+'/'+#suffix)")
+    public void deleteDraft(@PathVariable String prefix,
+                            @PathVariable String suffix,
+                            @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        CatalogueBundle bundle = service.get(id);
+        service.deleteDraft(bundle);
+    }
+
+    @PutMapping(path = "draft/transform")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #catalogueMap['id'])")
+    public ResponseEntity<?> finalize(@RequestBody LinkedHashMap<String, Object> catalogueMap,
+                                      @Parameter(hidden = true) Authentication auth) {
+        String id = (String) catalogueMap.get("id");
+        CatalogueBundle bundle = service.get(id);
+        bundle.setCatalogue(catalogueMap);
+
+        logger.info("Finalizing Draft Catalogue with id '{}'", id);
+        bundle = service.finalizeDraft(bundle, auth);
+
+        return new ResponseEntity<>(bundle.getCatalogue(), HttpStatus.OK);
     }
     //endregion
 
-    //region Provider
-    @Operation(description = "Returns the Provider of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/provider/{providerId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Provider> getCatalogueProvider(@PathVariable("catalogueId") String catalogueId,
-                                                         @PathVariable("providerId") String providerId) {
-        return new ResponseEntity<>(providerManager.get(providerId, catalogueId, false).getProvider(), HttpStatus.OK);
+    //region Organisation
+    @Operation(description = "Returns the Organisation of the specific Catalogue with the given id.")
+    @GetMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/**",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/**"
+    })
+    public ResponseEntity<?> getCatalogueOrganisation(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                      HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String providerId = extractWildcardId(request);
+        return new ResponseEntity<>(organisationService.get(getExternalFilters(providerId, catalogueId)).getOrganisation(), HttpStatus.OK);
     }
 
-    @Operation(description = "Returns the ProviderBundle of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/provider/bundle/{providerId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #providerId)")
-    public ResponseEntity<ProviderBundle> getCatalogueProviderBundle(@PathVariable("catalogueId") String catalogueId,
-                                                                     @PathVariable("providerId") String providerId,
-                                                                     @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(providerManager.get(providerId, catalogueId, false), HttpStatus.OK);
-    }
-
-    @Hidden
-    @GetMapping(path = {"{catalogueId}/provider/loggingInfoHistory/{providerId}"}, produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #providerId)")
-    public ResponseEntity<Paging<LoggingInfo>> providerLoggingInfoHistory(@PathVariable("catalogueId") String catalogueId,
-                                                                          @PathVariable("providerId") String providerId,
-                                                                          @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle bundle = providerManager.get(providerId, catalogueId, false);
-        Paging<LoggingInfo> loggingInfoHistory = providerManager.getLoggingInfoHistory(bundle);
-        return ResponseEntity.ok(loggingInfoHistory);
+    @Operation(description = "Returns the OrganisationBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/bundle/**",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/bundle/**"
+    })
+    public ResponseEntity<OrganisationBundle> getCatalogueOrganisationBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                             HttpServletRequest request,
+                                                                             @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String providerId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.hasAdminAccess(auth, providerId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(organisationService.get(getExternalFilters(providerId, catalogueId)), HttpStatus.OK);
     }
 
     @BrowseParameters
     @Operation(description = "Get a list of all Providers in the specific Catalogue.")
-    @Parameter(name = "suspended", description = "Suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false")))
-    @GetMapping(path = "{catalogueId}/provider/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<Provider>> getAllCatalogueProviders(@Parameter(hidden = true)
-                                                                     @RequestParam MultiValueMap<String, Object> params,
-                                                                     @PathVariable("catalogueId") String catalogueId) {
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/all",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/all"
+    })
+    public ResponseEntity<Paging<?>> getAllCatalogueOrganisations(@Parameter(hidden = true)
+                                                                  @RequestParam MultiValueMap<String, Object> params,
+                                                                  @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
         FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("provider");
-        ff.addFilter("published", false);
-        ff.addFilter("status", "approved provider");
+        ff.setResourceType("organisation");
         ff.addFilter("catalogue_id", catalogueId);
-        Paging<Provider> paging = genericResourceService.getResults(ff).map(r -> ((ProviderBundle) r).getPayload());
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<OrganisationBundle> paging = organisationService.getAll(ff);
+        return ResponseEntity.ok(paging.map(OrganisationBundle::getOrganisation));
+    }
+
+    @Hidden
+    @GetMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/bundle/all",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/bundle/all"
+    })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<OrganisationBundle>> getAllCatalogueOrganisationBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                         @Parameter(hidden = true)
+                                                                                         @RequestParam MultiValueMap<String, Object> params,
+                                                                                         @SuppressWarnings("unused")
+                                                                                         @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("organisation");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<OrganisationBundle> paging = organisationService.getAll(ff);
         return ResponseEntity.ok(paging);
     }
 
+    @Hidden
+    @GetMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/loggingInfoHistory/**",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/loggingInfoHistory/**"
+    })
+    public ResponseEntity<List<LoggingInfo>> organisationLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                            HttpServletRequest request,
+                                                                            @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String providerId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.hasAdminAccess(auth, providerId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        OrganisationBundle bundle = organisationService.get(getExternalFilters(providerId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = organisationService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
+    }
+
     @Operation(description = "Creates a new Provider for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/provider", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @PostMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation"
+    })
     @PreAuthorize("hasRole('ROLE_USER')")
-    public ResponseEntity<Provider> addCatalogueProvider(@RequestBody Provider provider, @PathVariable String catalogueId,
-                                                         @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle providerBundle = providerManager.add(new ProviderBundle(provider), catalogueId, auth);
-        logger.info("Added the Provider with name '{}' and id '{}' in the Catalogue '{}'",
-                provider.getName(), provider.getId(), catalogueId);
-        return new ResponseEntity<>(providerBundle.getProvider(), HttpStatus.CREATED);
+    public ResponseEntity<?> addCatalogueOrganisation(@RequestBody LinkedHashMap<String, Object> provider,
+                                                      @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                      @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        OrganisationBundle bundle = new OrganisationBundle();
+        bundle.setOrganisation(provider);
+        bundle.setCatalogueId(catalogueId);
+        OrganisationBundle ret = organisationService.add(bundle, auth);
+        logger.info("Added Provider with id '{}' in the Catalogue '{}'", provider.get("id"), catalogueId);
+        return new ResponseEntity<>(ret.getOrganisation(), HttpStatus.CREATED);
     }
 
     @Hidden
-    @Operation(description = "Creates a new Provider Bundle for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/provider/bundle", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @PostMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/bundle",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/bundle"
+    })
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<ProviderBundle> addCatalogueProviderBundle(@RequestBody ProviderBundle provider,
-                                                                     @PathVariable String catalogueId,
-                                                                     @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle providerBundle = providerManager.add(provider, catalogueId, auth);
-        logger.info("Added the Provider with name '{}' and id '{}' in the Catalogue '{}'",
-                provider.getProvider().getName(), provider.getProvider().getId(), catalogueId);
-        return new ResponseEntity<>(providerBundle, HttpStatus.CREATED);
+    public ResponseEntity<OrganisationBundle> addCatalogueOrganisationBundle(@RequestBody OrganisationBundle provider,
+                                                                             @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                             @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        provider.setCatalogueId(catalogueId);
+        OrganisationBundle bundle = organisationService.add(provider, auth);
+        logger.info("Added the Provider Bundle with id '{}' in the Catalogue '{}'", provider.getId(), catalogueId);
+        return new ResponseEntity<>(bundle, HttpStatus.CREATED);
     }
 
     @Operation(description = "Updates the Provider of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/provider", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth,#provider.id)")
-    public ResponseEntity<Provider> updateCatalogueProvider(@RequestBody Provider provider,
-                                                            @PathVariable String catalogueId,
-                                                            @RequestParam(required = false) String comment,
-                                                            @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle providerBundle = providerManager.get(catalogueId, provider.getId(), auth);
-        providerBundle.setProvider(provider);
-        if (comment == null || comment.isEmpty()) {
-            comment = "no comment";
-        }
-        providerBundle = providerManager.update(providerBundle, comment, auth);
-        logger.info("Updated the Provider with name '{}' and id '{} of the Catalogue '{}'",
-                provider.getName(), provider.getId(), catalogueId);
-        return new ResponseEntity<>(providerBundle.getProvider(), HttpStatus.OK);
+    @PutMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation"
+    })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth,#provider['id'])")
+    public ResponseEntity<?> updateCatalogueOrganisation(@RequestBody LinkedHashMap<String, Object> provider,
+                                                         @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                         @RequestParam(required = false) String comment,
+                                                         @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = provider.get("id").toString();
+        OrganisationBundle bundle = organisationService.get(id, catalogueId);
+        bundle.setOrganisation(provider);
+        bundle = organisationService.update(bundle, comment, auth);
+        logger.info("Updated the Provider with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getOrganisation(), HttpStatus.OK);
     }
 
     @Hidden
-    @Operation(description = "Updates the Provider Bundle of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/bundle/provider", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @PutMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/bundle/provider",
+            "{cataloguePrefix}/{catalogueSuffix}/bundle/organisation"
+    })
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<ProviderBundle> updateCatalogueProviderBundle(@RequestBody ProviderBundle provider,
-                                                                        @PathVariable String catalogueId,
-                                                                        @RequestParam(required = false) String comment,
-                                                                        @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle providerBundle = providerManager.update(provider, comment, auth);
-        logger.info("Updated the Provider with name '{}' and id '{} of the Catalogue '{}'",
-                provider.getProvider().getName(), provider.getProvider().getId(), catalogueId);
-        return new ResponseEntity<>(providerBundle, HttpStatus.OK);
+    public ResponseEntity<OrganisationBundle> updateCatalogueOrganisationBundle(@RequestBody OrganisationBundle provider,
+                                                                                @SuppressWarnings("unused") @PathVariable String cataloguePrefix,
+                                                                                @SuppressWarnings("unused") @PathVariable String catalogueSuffix,
+                                                                                @RequestParam(required = false) String comment,
+                                                                                @Parameter(hidden = true) Authentication auth) {
+        OrganisationBundle bundle = organisationService.update(provider, comment, auth);
+        logger.info("Updated the Provider Bundle id '{}'", provider.getId());
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
     }
 
     @Operation(description = "Deletes the Provider of the specific Catalogue with the given id.")
-    @DeleteMapping(path = "{catalogueId}/provider/{providerId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<Provider> deleteCatalogueProvider(@PathVariable("catalogueId") String catalogueId,
-                                                            @PathVariable("providerId") String providerId,
-                                                            @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle provider = providerManager.get(providerId, catalogueId, false);
-        if (provider == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
-        }
-        providerManager.delete(provider);
-        logger.info("Deleted the Provider with name '{}' and id '{}'", provider.getProvider().getName(), provider.getId());
-        return new ResponseEntity<>(provider.getProvider(), HttpStatus.OK);
+    @DeleteMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/**",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/**"
+    })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueOrganisation(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                         HttpServletRequest request,
+                                                         @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String providerId = extractWildcardId(request);
+        OrganisationBundle provider = organisationService.get(getExternalFilters(providerId, catalogueId));
+        organisationService.delete(provider);
+        logger.info("Deleted the Provider with id '{}' of the Catalogue '{}'", providerId, catalogueId);
+        return new ResponseEntity<>(provider.getOrganisation(), HttpStatus.OK);
     }
 
     @Hidden
-    @PatchMapping(path = "{catalogueId}/provider/auditProvider/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<ProviderBundle> auditProvider(@PathVariable("id") String id,
-                                                        @PathVariable("catalogueId") String catalogueId,
-                                                        @RequestParam(required = false) String comment,
-                                                        @RequestParam LoggingInfo.ActionType actionType,
-                                                        @Parameter(hidden = true) Authentication auth) {
-        ProviderBundle provider = providerManager.audit(id, catalogueId, comment, actionType, auth);
+    @PatchMapping(path = {
+            "{cataloguePrefix}/{catalogueSuffix}/provider/audit/{prefix}/{suffix}",
+            "{cataloguePrefix}/{catalogueSuffix}/organisation/audit/{prefix}/{suffix}"
+    })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<OrganisationBundle> auditOrganisation(@PathVariable String prefix,
+                                                                @PathVariable String suffix,
+                                                                @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                @RequestParam(required = false) String comment,
+                                                                @RequestParam LoggingInfo.ActionType actionType,
+                                                                @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        OrganisationBundle provider = organisationService.audit(id, catalogueId, comment, actionType, auth);
         return new ResponseEntity<>(provider, HttpStatus.OK);
     }
     //endregion
 
     //region Service
     @Operation(description = "Returns the Service of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/service/{serviceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<?> getCatalogueService(@PathVariable("catalogueId") String catalogueId,
-                                                 @PathVariable("serviceId") String serviceId) {
-        return new ResponseEntity<>(serviceBundleService.get(serviceId, catalogueId, false).getService(), HttpStatus.OK);
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/**")
+    public ResponseEntity<?> getCatalogueService(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                 HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String serviceId = extractWildcardId(request);
+        return new ResponseEntity<>(serviceService.get(getExternalFilters(serviceId, catalogueId)).getService(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Returns the ServiceBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/bundle/**")
+    public ResponseEntity<ServiceBundle> getCatalogueServiceBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                   HttpServletRequest request,
+                                                                   @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String serviceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, serviceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(serviceService.get(getExternalFilters(serviceId, catalogueId)), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @Operation(description = "Get a list of all Services in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueServices(@Parameter(hidden = true)
+                                                             @RequestParam MultiValueMap<String, Object> params,
+                                                             @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("service");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<ServiceBundle> paging = serviceService.getAll(ff);
+        return ResponseEntity.ok(paging.map(ServiceBundle::getService));
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<ServiceBundle>> getAllCatalogueServiceBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                               @Parameter(hidden = true)
+                                                                               @RequestParam MultiValueMap<String, Object> params,
+                                                                               @SuppressWarnings("unused")
+                                                                               @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("service");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<ServiceBundle> paging = serviceService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> serviceLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                       HttpServletRequest request,
+                                                                       @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String serviceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, serviceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        ServiceBundle bundle = serviceService.get(getExternalFilters(serviceId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = serviceService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
     }
 
     @Operation(description = "Creates a new Service for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/service", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.providerCanAddResources(#auth, #service)")
-    public ResponseEntity<Service> addCatalogueService(@RequestBody Service service, @PathVariable String catalogueId,
-                                                       @Parameter(hidden = true) Authentication auth) {
-        ServiceBundle ret = this.serviceBundleService.addResource(new ServiceBundle(service), catalogueId, auth);
-        logger.info("Added the Service with name '{}' and id '{}' in the Catalogue '{}'",
-                service.getName(), service.getId(), catalogueId);
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #service, null)")
+    public ResponseEntity<?> addCatalogueService(@RequestBody LinkedHashMap<String, Object> service,
+                                                 @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                 @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        ServiceBundle bundle = new ServiceBundle();
+        bundle.setService(service);
+        bundle.setCatalogueId(catalogueId);
+        ServiceBundle ret = serviceService.add(bundle, auth);
+        logger.info("Added Service with id '{}' in the Catalogue '{}'", service.get("id"), catalogueId);
         return new ResponseEntity<>(ret.getService(), HttpStatus.CREATED);
     }
 
     @Operation(description = "Updates the Service of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/service", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#service.id)")
-    public ResponseEntity<Service> updateCatalogueService(@RequestBody Service service, @PathVariable String catalogueId,
-                                                          @RequestParam(required = false) String comment,
-                                                          @Parameter(hidden = true) Authentication auth) {
-        ServiceBundle ret = this.serviceBundleService.updateResource(new ServiceBundle(service), catalogueId, comment, auth);
-        logger.info("Updated the Service with name '{}' and id '{} of the Catalogue '{}'",
-                service.getName(), service.getId(), catalogueId);
-        return new ResponseEntity<>(ret.getService(), HttpStatus.OK);
-    }
-
-    @Operation(description = "Returns the ServiceBundle of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/service/bundle/{serviceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #serviceId)")
-    public ResponseEntity<ServiceBundle> getCatalogueServiceBundle(@PathVariable("catalogueId") String catalogueId,
-                                                                   @PathVariable("serviceId") String serviceId,
-                                                                   @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(serviceBundleService.get(serviceId, catalogueId, false), HttpStatus.OK);
-    }
-
-    @Hidden
-    @GetMapping(path = {"{catalogueId}/service/loggingInfoHistory/{serviceId}"}, produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #serviceId)")
-    public ResponseEntity<Paging<LoggingInfo>> serviceLoggingInfoHistory(@PathVariable("catalogueId") String catalogueId,
-                                                                         @PathVariable("serviceId") String serviceId,
-                                                                         @Parameter(hidden = true) Authentication auth) {
-        ServiceBundle bundle = serviceBundleService.get(serviceId, catalogueId, false);
-        Paging<LoggingInfo> loggingInfoHistory = serviceBundleService.getLoggingInfoHistory(bundle);
-        return ResponseEntity.ok(loggingInfoHistory);
-    }
-
-    @Operation(description = "Get all the Services of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/service/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<Service>> getProviderServices(@PathVariable("catalogueId") String catalogueId,
-                                                               @PathVariable("providerId") String providerId,
-                                                               @Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> params) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("service");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<Service> paging = genericResourceService.getResults(ff).map(r -> ((ServiceBundle) r).getPayload());
-        return ResponseEntity.ok(paging);
-    }
-
-    @Hidden
-    @Operation(description = "Get all the Service Bundles of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/service/bundle/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #providerId)")
-    public ResponseEntity<Paging<ServiceBundle>> getProviderServiceBundles(@PathVariable("catalogueId") String catalogueId,
-                                                                           @PathVariable("providerId") String providerId,
-                                                                           @Parameter(hidden = true)
-                                                                               @RequestParam MultiValueMap<String, Object> params,
-                                                                           @Parameter(hidden = true) Authentication auth) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("service");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<ServiceBundle> paging = genericResourceService.getResults(ff).map(r -> ((ServiceBundle) r));
-        return ResponseEntity.ok(paging);
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#service['id'])")
+    public ResponseEntity<?> updateCatalogueService(@RequestBody LinkedHashMap<String, Object> service,
+                                                    @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    @RequestParam(required = false) String comment,
+                                                    @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = service.get("id").toString();
+        ServiceBundle bundle = serviceService.get(id, catalogueId);
+        bundle.setService(service);
+        bundle = serviceService.update(bundle, comment, auth);
+        logger.info("Updated the Service with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getService(), HttpStatus.OK);
     }
 
     @Operation(description = "Deletes the Service of the specific Catalogue with the given id.")
-    @DeleteMapping(path = "{catalogueId}/service/{serviceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<Service> deleteCatalogueService(@PathVariable("catalogueId") String catalogueId,
-                                                          @PathVariable("serviceId") String serviceId,
-                                                          @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        ServiceBundle serviceBundle = serviceBundleService.get(serviceId, catalogueId, false);
-        if (serviceBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
-        }
-        serviceBundleService.delete(serviceBundle);
-        logger.info("Deleted the Service with name '{}' and id '{}'",
-                serviceBundle.getService().getName(), serviceBundle.getId());
-        return new ResponseEntity<>(serviceBundle.getService(), HttpStatus.OK);
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/**")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueService(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    HttpServletRequest request,
+                                                    @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String serviceId = extractWildcardId(request);
+        ServiceBundle service = serviceService.get(getExternalFilters(serviceId, catalogueId));
+        serviceService.delete(service);
+        logger.info("Deleted the Service with id '{}' of the Catalogue '{}'", serviceId, catalogueId);
+        return new ResponseEntity<>(service.getService(), HttpStatus.OK);
     }
 
     @Hidden
-    @PatchMapping(path = "{catalogueId}/service/auditService/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<ServiceBundle> auditService(@PathVariable("id") String id,
-                                                      @PathVariable("catalogueId") String catalogueId,
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/service/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<ServiceBundle> auditService(@PathVariable String prefix,
+                                                      @PathVariable String suffix,
+                                                      @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
                                                       @RequestParam(required = false) String comment,
                                                       @RequestParam LoggingInfo.ActionType actionType,
                                                       @Parameter(hidden = true) Authentication auth) {
-        ServiceBundle service = serviceBundleService.audit(id, catalogueId, comment, actionType, auth);
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        ServiceBundle service = serviceService.audit(id, catalogueId, comment, actionType, auth);
         return new ResponseEntity<>(service, HttpStatus.OK);
     }
     //endregion
 
     //region Datasource
-    @Operation(description = "Returns the Datasource of the specific Service of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/datasource/{serviceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<?> getCatalogueDatasource(@PathVariable("catalogueId") String catalogueId,
-                                                    @PathVariable("serviceId") String serviceId) {
-        DatasourceBundle datasourceBundle = datasourceService.get(serviceId, catalogueId, false);
-        return datasourceBundle != null ? new ResponseEntity<>(datasourceBundle.getDatasource(), HttpStatus.OK) :
-                new ResponseEntity<>(null, HttpStatus.OK);
+    @Operation(description = "Returns the Datasource of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/**")
+    public ResponseEntity<?> getCatalogueDatasource(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String datasourceId = extractWildcardId(request);
+        return new ResponseEntity<>(datasourceService.get(getExternalFilters(datasourceId, catalogueId)).getDatasource(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Returns the DatasourceBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/bundle/**")
+    public ResponseEntity<DatasourceBundle> getCatalogueDatasourceBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                         HttpServletRequest request,
+                                                                         @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String datasourceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, datasourceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(datasourceService.get(getExternalFilters(datasourceId, catalogueId)), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @Operation(description = "Get a list of all Datasources in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueDatasources(@Parameter(hidden = true)
+                                                                @RequestParam MultiValueMap<String, Object> params,
+                                                                @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("datasource");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<DatasourceBundle> paging = datasourceService.getAll(ff);
+        return ResponseEntity.ok(paging.map(DatasourceBundle::getDatasource));
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<DatasourceBundle>> getAllCatalogueDatasourceBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                     @Parameter(hidden = true)
+                                                                                     @RequestParam MultiValueMap<String, Object> params,
+                                                                                     @SuppressWarnings("unused")
+                                                                                     @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("datasource");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<DatasourceBundle> paging = datasourceService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> datasourceLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                          HttpServletRequest request,
+                                                                          @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String datasourceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, datasourceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        DatasourceBundle bundle = datasourceService.get(getExternalFilters(datasourceId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = datasourceService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
     }
 
     @Operation(description = "Creates a new Datasource for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/datasource", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #datasource.serviceId)")
-    public ResponseEntity<Datasource> addCatalogueDatasource(@PathVariable("catalogueId") String catalogueId,
-                                                             @RequestBody Datasource datasource,
-                                                             @Parameter(hidden = true) Authentication auth) {
-        DatasourceBundle ret = this.datasourceService.add(new DatasourceBundle(datasource), auth);
-        logger.info("Added the Datasource with id '{}' in the Catalogue '{}'",
-                datasource.getId(), datasource.getCatalogueId());
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #datasource, null)")
+    public ResponseEntity<?> addCatalogueDatasource(@RequestBody LinkedHashMap<String, Object> datasource,
+                                                    @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        DatasourceBundle bundle = new DatasourceBundle();
+        bundle.setDatasource(datasource);
+        bundle.setCatalogueId(catalogueId);
+        DatasourceBundle ret = datasourceService.add(bundle, auth);
+        logger.info("Added Datasource with id '{}' in the Catalogue '{}'", datasource.get("id"), catalogueId);
         return new ResponseEntity<>(ret.getDatasource(), HttpStatus.CREATED);
     }
 
     @Operation(description = "Updates the Datasource of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/datasource", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #datasource.serviceId)")
-    public ResponseEntity<Datasource> updateCatalogueDatasource(@PathVariable("catalogueId") String catalogueId,
-                                                                @RequestBody Datasource datasource,
-                                                                @RequestParam(required = false) String comment,
-                                                                @Parameter(hidden = true) Authentication auth) {
-        DatasourceBundle ret = this.datasourceService.update(new DatasourceBundle(datasource), comment, auth); //TODO: why there is no catalogueId in the update?
-        logger.info("Updated the Datasource with id '{} of the Catalogue '{}'",
-                datasource.getId(), datasource.getCatalogueId());
-        return new ResponseEntity<>(ret.getDatasource(), HttpStatus.OK);
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#datasource['id'])")
+    public ResponseEntity<?> updateCatalogueDatasource(@RequestBody LinkedHashMap<String, Object> datasource,
+                                                       @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                       @RequestParam(required = false) String comment,
+                                                       @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = datasource.get("id").toString();
+        DatasourceBundle bundle = datasourceService.get(id, catalogueId);
+        bundle.setDatasource(datasource);
+        bundle = datasourceService.update(bundle, comment, auth);
+        logger.info("Updated the Datasource with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getDatasource(), HttpStatus.OK);
     }
 
-    @Operation(description = "Deletes the Datasource of the specific Service of the specific Catalogue given the service id.")
-    @DeleteMapping(path = "{catalogueId}/datasource/{serviceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<Datasource> deleteCatalogueDatasource(@PathVariable("catalogueId") String catalogueId,
-                                                                @PathVariable("serviceId") String serviceId,
-                                                                @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        DatasourceBundle datasourceBundle = datasourceService.get(serviceId, catalogueId, false);
-        if (datasourceBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
+    @Operation(description = "Deletes the Datasource of the specific Catalogue with the given id.")
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/**")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueDatasource(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                       HttpServletRequest request,
+                                                       @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String datasourceId = extractWildcardId(request);
+        DatasourceBundle datasource = datasourceService.get(getExternalFilters(datasourceId, catalogueId));
+        datasourceService.delete(datasource);
+        logger.info("Deleted the Datasource with id '{}' of the Catalogue '{}'", datasourceId, catalogueId);
+        return new ResponseEntity<>(datasource.getDatasource(), HttpStatus.OK);
+    }
+
+    @Hidden
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/datasource/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<DatasourceBundle> auditDatasource(@PathVariable String prefix,
+                                                            @PathVariable String suffix,
+                                                            @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                            @RequestParam(required = false) String comment,
+                                                            @RequestParam LoggingInfo.ActionType actionType,
+                                                            @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        DatasourceBundle datasource = datasourceService.audit(id, catalogueId, comment, actionType, auth);
+        return new ResponseEntity<>(datasource, HttpStatus.OK);
+    }
+    //endregion
+
+    //region Adapter
+    @Operation(description = "Returns the Adapter of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/**")
+    public ResponseEntity<?> getCatalogueAdapter(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                 HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String adapterId = extractWildcardId(request);
+        return new ResponseEntity<>(adapterService.get(getExternalFilters(adapterId, catalogueId)).getAdapter(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Returns the AdapterBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/bundle/**")
+    public ResponseEntity<AdapterBundle> getCatalogueAdapterBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                   HttpServletRequest request,
+                                                                   @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String adapterId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, adapterId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
         }
-        datasourceService.delete(datasourceBundle);
-        logger.info("Deleted the Datasource with id '{}'", datasourceBundle.getId());
-        return new ResponseEntity<>(datasourceBundle.getDatasource(), HttpStatus.OK);
+        return new ResponseEntity<>(adapterService.get(getExternalFilters(adapterId, catalogueId)), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @Operation(description = "Get a list of all Adapters in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueAdapters(@Parameter(hidden = true)
+                                                             @RequestParam MultiValueMap<String, Object> params,
+                                                             @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("adapter");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<AdapterBundle> paging = adapterService.getAll(ff);
+        return ResponseEntity.ok(paging.map(AdapterBundle::getAdapter));
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<AdapterBundle>> getAllCatalogueAdapterBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                               @Parameter(hidden = true)
+                                                                               @RequestParam MultiValueMap<String, Object> params,
+                                                                               @SuppressWarnings("unused")
+                                                                               @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("adapter");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<AdapterBundle> paging = adapterService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> adapterLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                       HttpServletRequest request,
+                                                                       @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String adapterId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, adapterId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        AdapterBundle bundle = adapterService.get(getExternalFilters(adapterId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = adapterService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
+    }
+
+    @Operation(description = "Creates a new Adapter for the specific Catalogue.")
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #adapter, null)")
+    public ResponseEntity<?> addCatalogueAdapter(@RequestBody LinkedHashMap<String, Object> adapter,
+                                                 @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                 @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        AdapterBundle bundle = new AdapterBundle();
+        bundle.setAdapter(adapter);
+        bundle.setCatalogueId(catalogueId);
+        AdapterBundle ret = adapterService.add(bundle, auth);
+        logger.info("Added Adapter with id '{}' in the Catalogue '{}'", adapter.get("id"), catalogueId);
+        return new ResponseEntity<>(ret.getAdapter(), HttpStatus.CREATED);
+    }
+
+    @Operation(description = "Updates the Adapter of the specific Catalogue.")
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#adapter['id'])")
+    public ResponseEntity<?> updateCatalogueAdapter(@RequestBody LinkedHashMap<String, Object> adapter,
+                                                    @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    @RequestParam(required = false) String comment,
+                                                    @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = adapter.get("id").toString();
+        AdapterBundle bundle = adapterService.get(id, catalogueId);
+        bundle.setAdapter(adapter);
+        bundle = adapterService.update(bundle, comment, auth);
+        logger.info("Updated the Adapter with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getAdapter(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Deletes the Adapter of the specific Catalogue with the given id.")
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/**")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueAdapter(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                    HttpServletRequest request,
+                                                    @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String adapterId = extractWildcardId(request);
+        AdapterBundle adapter = adapterService.get(getExternalFilters(adapterId, catalogueId));
+        adapterService.delete(adapter);
+        logger.info("Deleted the Adapter with id '{}' of the Catalogue '{}'", adapterId, catalogueId);
+        return new ResponseEntity<>(adapter.getAdapter(), HttpStatus.OK);
+    }
+
+    @Hidden
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/adapter/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<AdapterBundle> auditAdapter(@PathVariable String prefix,
+                                                      @PathVariable String suffix,
+                                                      @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                      @RequestParam(required = false) String comment,
+                                                      @RequestParam LoggingInfo.ActionType actionType,
+                                                      @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        AdapterBundle adapter = adapterService.audit(id, catalogueId, comment, actionType, auth);
+        return new ResponseEntity<>(adapter, HttpStatus.OK);
     }
     //endregion
 
     //region Training Resource
     @Operation(description = "Returns the Training Resource of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/trainingResource/{trainingResourceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<TrainingResource> getCatalogueTrainingResource(@PathVariable("catalogueId") String catalogueId,
-                                                                         @PathVariable("trainingResourceId") String trainingResourceId,
-                                                                         @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(trainingResourceService.get(trainingResourceId, catalogueId, false).getTrainingResource(), HttpStatus.OK);
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/**")
+    public ResponseEntity<?> getCatalogueTrainingResource(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                          HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String trainingResourceId = extractWildcardId(request);
+        return new ResponseEntity<>(trainingResourceService.get(getExternalFilters(trainingResourceId, catalogueId))
+                .getTrainingResource(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Returns the TrainingResourceBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/bundle/**")
+    public ResponseEntity<TrainingResourceBundle> getCatalogueTrainingResourceBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                     HttpServletRequest request,
+                                                                                     @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String trainingResourceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, trainingResourceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(trainingResourceService.get(getExternalFilters(trainingResourceId, catalogueId)), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @Operation(description = "Get a list of all Training Resources in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueTrainingResources(@Parameter(hidden = true)
+                                                                      @RequestParam MultiValueMap<String, Object> params,
+                                                                      @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("training_resource");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<TrainingResourceBundle> paging = trainingResourceService.getAll(ff);
+        return ResponseEntity.ok(paging.map(TrainingResourceBundle::getTrainingResource));
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<TrainingResourceBundle>> getAllCatalogueTrainingResourceBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                                 @Parameter(hidden = true)
+                                                                                                 @RequestParam MultiValueMap<String, Object> params,
+                                                                                                 @SuppressWarnings("unused")
+                                                                                                 @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("training_resource");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<TrainingResourceBundle> paging = trainingResourceService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> trainingResourceLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                HttpServletRequest request,
+                                                                                @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String trainingResourceId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, trainingResourceId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        TrainingResourceBundle bundle = trainingResourceService.get(getExternalFilters(trainingResourceId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = trainingResourceService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
     }
 
     @Operation(description = "Creates a new Training Resource for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/trainingResource", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.providerCanAddResources(#auth, #trainingResource)")
-    public ResponseEntity<TrainingResource> addCatalogueTrainingResource(@RequestBody TrainingResource trainingResource,
-                                                                         @PathVariable String catalogueId,
-                                                                         @Parameter(hidden = true) Authentication auth) {
-        TrainingResourceBundle ret = this.trainingResourceService.add(new TrainingResourceBundle(trainingResource), catalogueId, auth);
-        logger.info("Added the Training Resource with title '{}' and id '{}' in the Catalogue '{}'",
-                trainingResource.getTitle(), trainingResource.getId(), catalogueId);
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #trainingResource, null)")
+    public ResponseEntity<?> addCatalogueTrainingResource(@RequestBody LinkedHashMap<String, Object> trainingResource,
+                                                          @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                          @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        TrainingResourceBundle bundle = new TrainingResourceBundle();
+        bundle.setTrainingResource(trainingResource);
+        bundle.setCatalogueId(catalogueId);
+        TrainingResourceBundle ret = trainingResourceService.add(bundle, auth);
+        logger.info("Added Training Resource with id '{}' in the Catalogue '{}'", trainingResource.get("id"), catalogueId);
         return new ResponseEntity<>(ret.getTrainingResource(), HttpStatus.CREATED);
     }
 
     @Operation(description = "Updates the Training Resource of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/trainingResource", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#trainingResource.id)")
-    public ResponseEntity<TrainingResource> updateCatalogueTrainingResource(@RequestBody TrainingResource trainingResource,
-                                                                            @PathVariable String catalogueId,
-                                                                            @RequestParam(required = false) String comment,
-                                                                            @Parameter(hidden = true) Authentication auth) {
-        TrainingResourceBundle ret = this.trainingResourceService.update(
-                new TrainingResourceBundle(trainingResource), catalogueId, comment, auth);
-        logger.info("Updated the Training Resource with title '{}' and id '{} of the Catalogue '{}'",
-                trainingResource.getTitle(), trainingResource.getId(), catalogueId);
-        return new ResponseEntity<>(ret.getTrainingResource(), HttpStatus.OK);
-    }
-
-    @Operation(description = "Get all the Training Resources of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/trainingResource/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<TrainingResource>> getProviderTrainingResources(@PathVariable String catalogueId,
-                                                                                 @PathVariable("providerId") String providerId,
-                                                                                 @Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> params) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("training_resource");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<TrainingResource> paging = genericResourceService.getResults(ff).map(r -> ((TrainingResourceBundle) r).getPayload());
-        return ResponseEntity.ok(paging);
-    }
-
-    @Hidden
-    @Operation(description = "Get all the Training Resource Bundles of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/trainingResource/bundle/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #providerId)")
-    public ResponseEntity<Paging<TrainingResourceBundle>> getProviderTrainingResourceBundles(@PathVariable("catalogueId") String catalogueId,
-                                                                                             @PathVariable("providerId") String providerId,
-                                                                                             @Parameter(hidden = true)
-                                                                                                 @RequestParam MultiValueMap<String, Object> params,
-                                                                                             @Parameter(hidden = true) Authentication auth) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("training_resource");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<TrainingResourceBundle> paging = genericResourceService.getResults(ff).map(r -> ((TrainingResourceBundle) r));
-        return ResponseEntity.ok(paging);
-    }
-
-    @Operation(description = "Returns the TrainingResourceBundle of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/trainingResource/bundle/{trainingResourceId}",
-            produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #trainingResourceId)")
-    public ResponseEntity<TrainingResourceBundle> getCatalogueTrainingResourceBundle(@PathVariable("catalogueId") String catalogueId,
-                                                                   @PathVariable("trainingResourceId") String trainingResourceId,
-                                                                   @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(trainingResourceService.get(trainingResourceId, catalogueId, false), HttpStatus.OK);
-    }
-
-    @Hidden
-    @GetMapping(path = {"{catalogueId}/trainingResource/loggingInfoHistory/{trainingResourceId}"}, produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #trainingResourceId)")
-    public ResponseEntity<Paging<LoggingInfo>> trainingResourceLoggingInfoHistory(@PathVariable("catalogueId") String catalogueId,
-                                                                                  @PathVariable("trainingResourceId") String trainingResourceId,
-                                                                                  @Parameter(hidden = true) Authentication auth) {
-        TrainingResourceBundle bundle = trainingResourceService.get(trainingResourceId, catalogueId, false);
-        Paging<LoggingInfo> loggingInfoHistory = trainingResourceService.getLoggingInfoHistory(bundle);
-        return ResponseEntity.ok(loggingInfoHistory);
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#trainingResource['id'])")
+    public ResponseEntity<?> updateCatalogueTrainingResource(@RequestBody LinkedHashMap<String, Object> trainingResource,
+                                                             @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                             @RequestParam(required = false) String comment,
+                                                             @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = trainingResource.get("id").toString();
+        TrainingResourceBundle bundle = trainingResourceService.get(id, catalogueId);
+        bundle.setTrainingResource(trainingResource);
+        bundle = trainingResourceService.update(bundle, comment, auth);
+        logger.info("Updated the Training Resource with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getTrainingResource(), HttpStatus.OK);
     }
 
     @Operation(description = "Deletes the Training Resource of the specific Catalogue with the given id.")
-    @DeleteMapping(path = "{catalogueId}/trainingResource/{trainingResourceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<TrainingResource> deleteCatalogueTrainingResource(@PathVariable("catalogueId") String catalogueId,
-                                                                            @PathVariable("trainingResourceId") String trainingResourceId,
-                                                                            @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        TrainingResourceBundle trainingResourceBundle = trainingResourceService.get(trainingResourceId, catalogueId, false);
-        if (trainingResourceBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
-        }
-        trainingResourceService.delete(trainingResourceBundle);
-        logger.info("Deleted the Training Resource with title '{}' and id '{}'",
-                trainingResourceBundle.getTrainingResource().getTitle(), trainingResourceBundle.getId());
-        return new ResponseEntity<>(trainingResourceBundle.getTrainingResource(), HttpStatus.OK);
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/**")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueTrainingResource(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                             HttpServletRequest request,
+                                                             @SuppressWarnings("unused")
+                                                             @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String trainingResourceId = extractWildcardId(request);
+        TrainingResourceBundle trainingResource = trainingResourceService.get(getExternalFilters(trainingResourceId, catalogueId));
+        trainingResourceService.delete(trainingResource);
+        logger.info("Deleted the Training Resource with id '{}' of the Catalogue '{}'", trainingResourceId, catalogueId);
+        return new ResponseEntity<>(trainingResource.getTrainingResource(), HttpStatus.OK);
     }
 
     @Hidden
-    @PatchMapping(path = "{catalogueId}/trainingResource/auditTrainingResource/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<TrainingResourceBundle> auditTrainingResource(@PathVariable("id") String id,
-                                                                        @PathVariable("catalogueId") String catalogueId,
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/trainingResource/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<TrainingResourceBundle> auditTrainingResource(@PathVariable String prefix,
+                                                                        @PathVariable String suffix,
+                                                                        @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
                                                                         @RequestParam(required = false) String comment,
                                                                         @RequestParam LoggingInfo.ActionType actionType,
                                                                         @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
         TrainingResourceBundle trainingResource = trainingResourceService.audit(id, catalogueId, comment, actionType, auth);
         return new ResponseEntity<>(trainingResource, HttpStatus.OK);
     }
     //endregion
 
-    //region Deployable Service
-    @Operation(description = "Returns the Deployable Service of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/deployableService/{deployableServiceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<?> getCatalogueDeployableService(@PathVariable("catalogueId") String catalogueId,
-                                                           @PathVariable("deployableServiceId") String deployableServiceId) {
-        return new ResponseEntity<>(deployableServiceService.get(deployableServiceId, catalogueId, false)
-                .getDeployableService(), HttpStatus.OK);
+    //region Deployable Application
+    @Operation(description = "Returns the Deployable Application of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/**")
+    public ResponseEntity<?> getCatalogueDeployableApplication(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                               HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String deployableApplicationId = extractWildcardId(request);
+        return new ResponseEntity<>(deployableApplicationService.get(getExternalFilters(deployableApplicationId, catalogueId))
+                .getDeployableApplication(), HttpStatus.OK);
     }
 
-    @Operation(description = "Creates a new Deployable Service for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/deployableService", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.providerCanAddResources(#auth, #deployableService)")
-    public ResponseEntity<DeployableService> addCatalogueDeployableService(@RequestBody DeployableService deployableService,
-                                                                           @PathVariable String catalogueId,
-                                                                           @Parameter(hidden = true) Authentication auth) {
-        DeployableServiceBundle ret = this.deployableServiceService.add(new DeployableServiceBundle(deployableService), catalogueId, auth);
-        logger.info("Added the Deployable Service with name '{}' and id '{}' in the Catalogue '{}'",
-                deployableService.getName(), deployableService.getId(), catalogueId);
-        return new ResponseEntity<>(ret.getDeployableService(), HttpStatus.CREATED);
+    @Operation(description = "Returns the DeployableApplicationBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/bundle/**")
+    public ResponseEntity<DeployableApplicationBundle> getCatalogueDeployableApplicationBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                               HttpServletRequest request,
+                                                                                               @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String deployableApplicationId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, deployableApplicationId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(deployableApplicationService.get(getExternalFilters(deployableApplicationId, catalogueId)), HttpStatus.OK);
     }
 
-    @Operation(description = "Updates the Deployable Service of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/deployableService", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#deployableService.id)")
-    public ResponseEntity<DeployableService> updateCatalogueDeployableService(@RequestBody DeployableService deployableService,
-                                                                              @PathVariable String catalogueId,
-                                                                              @RequestParam(required = false) String comment,
-                                                                              @Parameter(hidden = true) Authentication auth) {
-        DeployableServiceBundle ret = this.deployableServiceService.update(new DeployableServiceBundle(deployableService),
-                catalogueId, comment, auth);
-        logger.info("Updated the Deployable Service with name '{}' and id '{} of the Catalogue '{}'",
-                deployableService.getName(), deployableService.getId(), catalogueId);
-        return new ResponseEntity<>(ret.getDeployableService(), HttpStatus.OK);
-    }
-
-    @Operation(description = "Returns the DeployableServiceBundle of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/deployableService/bundle/{deployableServiceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #deployableServiceId)")
-    public ResponseEntity<DeployableServiceBundle> getCatalogueDeployableServiceBundle(@PathVariable("catalogueId") String catalogueId,
-                                                                                       @PathVariable("deployableServiceId") String deployableServiceId,
-                                                                                       @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(deployableServiceService.get(deployableServiceId, catalogueId, false), HttpStatus.OK);
+    @BrowseParameters
+    @Operation(description = "Get a list of all Deployable Applications in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueDeployableApplications(@Parameter(hidden = true)
+                                                                           @RequestParam MultiValueMap<String, Object> params,
+                                                                           @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("deployable_application");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<DeployableApplicationBundle> paging = deployableApplicationService.getAll(ff);
+        return ResponseEntity.ok(paging.map(DeployableApplicationBundle::getDeployableApplication));
     }
 
     @Hidden
-    @GetMapping(path = {"{catalogueId}/deployableService/loggingInfoHistory/{deployableServiceId}"}, produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #deployableServiceId)")
-    public ResponseEntity<Paging<LoggingInfo>> deployableServiceLoggingInfoHistory(@PathVariable("catalogueId") String catalogueId,
-                                                                                   @PathVariable("deployableServiceId") String deployableServiceId,
-                                                                                   @Parameter(hidden = true) Authentication auth) {
-        DeployableServiceBundle bundle = deployableServiceService.get(deployableServiceId, catalogueId, false);
-        Paging<LoggingInfo> loggingInfoHistory = deployableServiceService.getLoggingInfoHistory(bundle);
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<DeployableApplicationBundle>> getAllCatalogueDeployableApplicationBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                                           @Parameter(hidden = true)
+                                                                                                           @RequestParam MultiValueMap<String, Object> params,
+                                                                                                           @SuppressWarnings("unused")
+                                                                                                           @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("deployable_application");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<DeployableApplicationBundle> paging = deployableApplicationService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> deployableApplicationLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                     HttpServletRequest request,
+                                                                                     @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String deployableApplicationId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, deployableApplicationId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        DeployableApplicationBundle bundle = deployableApplicationService.get(getExternalFilters(deployableApplicationId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = deployableApplicationService.getLoggingInfoHistory(bundle);
         return ResponseEntity.ok(loggingInfoHistory);
     }
 
-    @Operation(description = "Get all the Deployable Services of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/deployableService/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<DeployableService>> getProviderDeployableServices(@PathVariable("catalogueId") String catalogueId,
-                                                                                   @PathVariable("providerId") String providerId,
-                                                                                   @Parameter(hidden = true)
-                                                                                   @RequestParam MultiValueMap<String, Object> params) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("deployable_service");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<DeployableService> paging = genericResourceService.getResults(ff).map(r -> ((DeployableServiceBundle) r).getPayload());
-        return ResponseEntity.ok(paging);
+    @Operation(description = "Creates a new Deployable Application for the specific Catalogue.")
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #deployableApplication, null)")
+    public ResponseEntity<?> addCatalogueDeployableApplication(@RequestBody LinkedHashMap<String, Object> deployableApplication,
+                                                               @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                               @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        DeployableApplicationBundle bundle = new DeployableApplicationBundle();
+        bundle.setDeployableApplication(deployableApplication);
+        bundle.setCatalogueId(catalogueId);
+        DeployableApplicationBundle ret = deployableApplicationService.add(bundle, auth);
+        logger.info("Added Deployable Application with id '{}' in the Catalogue '{}'", deployableApplication.get("id"), catalogueId);
+        return new ResponseEntity<>(ret.getDeployableApplication(), HttpStatus.CREATED);
+    }
+
+    @Operation(description = "Updates the Deployable Application of the specific Catalogue.")
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#deployableApplication['id'])")
+    public ResponseEntity<?> updateCatalogueDeployableApplication(@RequestBody LinkedHashMap<String, Object> deployableApplication,
+                                                                  @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                  @RequestParam(required = false) String comment,
+                                                                  @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = deployableApplication.get("id").toString();
+        DeployableApplicationBundle bundle = deployableApplicationService.get(id, catalogueId);
+        bundle.setDeployableApplication(deployableApplication);
+        bundle = deployableApplicationService.update(bundle, comment, auth);
+        logger.info("Updated the Deployable Application with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getDeployableApplication(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Deletes the Deployable Application of the specific Catalogue with the given id.")
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/**")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueDeployableApplication(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                  HttpServletRequest request,
+                                                                  @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String deployableApplicationId = extractWildcardId(request);
+        DeployableApplicationBundle deployableApplication = deployableApplicationService.get(getExternalFilters(deployableApplicationId, catalogueId));
+        deployableApplicationService.delete(deployableApplication);
+        logger.info("Deleted the Deployable Application with id '{}' of the Catalogue '{}'", deployableApplicationId, catalogueId);
+        return new ResponseEntity<>(deployableApplication.getDeployableApplication(), HttpStatus.OK);
     }
 
     @Hidden
-    @Operation(description = "Get all the Deployable Service Bundles of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/deployableService/bundle/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #providerId)")
-    public ResponseEntity<Paging<DeployableServiceBundle>> getProviderDeployableServiceBundles(@PathVariable("catalogueId") String catalogueId,
-                                                                                               @PathVariable("providerId") String providerId,
-                                                                                               @Parameter(hidden = true)
-                                                                                               @RequestParam MultiValueMap<String, Object> params,
-                                                                                               @Parameter(hidden = true) Authentication auth) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("deployable_service");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("resource_organisation", providerId);
-        Paging<DeployableServiceBundle> paging = genericResourceService.getResults(ff).map(r -> ((DeployableServiceBundle) r));
-        return ResponseEntity.ok(paging);
-    }
-
-    @Operation(description = "Deletes the Deployable Service of the specific Catalogue with the given id.")
-    @DeleteMapping(path = "{catalogueId}/deployableService/{deployableServiceId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<DeployableService> deleteCatalogueDeployableService(@PathVariable("catalogueId") String catalogueId,
-                                                                              @PathVariable("deployableServiceId") String deployableServiceId,
-                                                                              @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        DeployableServiceBundle deployableServiceBundle = deployableServiceService.get(deployableServiceId, catalogueId, false);
-        if (deployableServiceBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
-        }
-        deployableServiceService.delete(deployableServiceBundle);
-        logger.info("Deleted the Deployable Service with name '{}' and id '{}'",
-                deployableServiceBundle.getDeployableService().getName(), deployableServiceBundle.getId());
-        return new ResponseEntity<>(deployableServiceBundle.getDeployableService(), HttpStatus.OK);
-    }
-
-    @Hidden
-    @PatchMapping(path = "{catalogueId}/deployableService/auditService/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<DeployableServiceBundle> auditDeployableService(@PathVariable("id") String id,
-                                                      @PathVariable("catalogueId") String catalogueId,
-                                                      @RequestParam(required = false) String comment,
-                                                      @RequestParam LoggingInfo.ActionType actionType,
-                                                      @Parameter(hidden = true) Authentication auth) {
-        DeployableServiceBundle deployableService = deployableServiceService.audit(id, catalogueId, comment, actionType, auth);
-        return new ResponseEntity<>(deployableService, HttpStatus.OK);
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/deployableApplication/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<DeployableApplicationBundle> auditDeployableApplication(@PathVariable String prefix,
+                                                                                  @PathVariable String suffix,
+                                                                                  @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                  @RequestParam(required = false) String comment,
+                                                                                  @RequestParam LoggingInfo.ActionType actionType,
+                                                                                  @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        DeployableApplicationBundle deployableApplication = deployableApplicationService.audit(id, catalogueId, comment, actionType, auth);
+        return new ResponseEntity<>(deployableApplication, HttpStatus.OK);
     }
     //endregion
 
     //region Interoperability Record
     @Operation(description = "Returns the Interoperability Record of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/interoperabilityRecord/{interoperabilityRecordId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<InteroperabilityRecord> getCatalogueInteroperabilityRecord(@PathVariable("catalogueId") String catalogueId,
-                                                                                     @PathVariable("interoperabilityRecordId") String interoperabilityRecordId,
-                                                                                     @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(interoperabilityRecordService.get(interoperabilityRecordId, catalogueId, false).getInteroperabilityRecord(), HttpStatus.OK);
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/**")
+    public ResponseEntity<?> getCatalogueInteroperabilityRecord(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                HttpServletRequest request) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String interoperabilityRecordId = extractWildcardId(request);
+        return new ResponseEntity<>(guidelineService.get(getExternalFilters(interoperabilityRecordId, catalogueId)).getInteroperabilityRecord(), HttpStatus.OK);
+    }
+
+    @Operation(description = "Returns the InteroperabilityRecordBundle of the specific Catalogue with the given id.")
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/bundle/**")
+    public ResponseEntity<InteroperabilityRecordBundle> getCatalogueInteroperabilityRecordBundle(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                                 HttpServletRequest request,
+                                                                                                 @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String interoperabilityRecordId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, interoperabilityRecordId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        return new ResponseEntity<>(guidelineService.get(getExternalFilters(interoperabilityRecordId, catalogueId)), HttpStatus.OK);
+    }
+
+    @BrowseParameters
+    @Operation(description = "Get a list of all Interoperability Records in the specific Catalogue.")
+    @Parameter(name = "suspended", content = @Content(schema = @Schema(type = "boolean", defaultValue = "false", nullable = true)))
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/all")
+    public ResponseEntity<Paging<?>> getAllCatalogueInteroperabilityRecords(@Parameter(hidden = true)
+                                                                            @RequestParam MultiValueMap<String, Object> params,
+                                                                            @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("interoperability_record");
+        ff.addFilter("catalogue_id", catalogueId);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<InteroperabilityRecordBundle> paging = guidelineService.getAll(ff);
+        return ResponseEntity.ok(paging.map(InteroperabilityRecordBundle::getInteroperabilityRecord));
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<InteroperabilityRecordBundle>> getAllCatalogueInteroperabilityRecordBundles(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                                             @Parameter(hidden = true)
+                                                                                                             @RequestParam MultiValueMap<String, Object> params,
+                                                                                                             @SuppressWarnings("unused")
+                                                                                                             @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        FacetFilter ff = FacetFilter.from(params);
+        ff.setResourceType("interoperability_record");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        ff.addFilter("catalogue_id", catalogueId);
+        Paging<InteroperabilityRecordBundle> paging = guidelineService.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Hidden
+    @GetMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/loggingInfoHistory/**")
+    public ResponseEntity<List<LoggingInfo>> interoperabilityRecordLoggingInfoHistory(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                                      HttpServletRequest request,
+                                                                                      @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String interoperabilityRecordId = extractWildcardId(request);
+        if (!securityService.hasPortalAdminRole(auth) && !securityService.isResourceAdmin(auth, interoperabilityRecordId, catalogueId)) {
+            throw new AccessDeniedException("Forbidden");
+        }
+        InteroperabilityRecordBundle bundle = guidelineService.get(getExternalFilters(interoperabilityRecordId, catalogueId));
+        List<LoggingInfo> loggingInfoHistory = guidelineService.getLoggingInfoHistory(bundle);
+        return ResponseEntity.ok(loggingInfoHistory);
     }
 
     @Operation(description = "Creates a new Interoperability Record for the specific Catalogue.")
-    @PostMapping(path = "{catalogueId}/interoperabilityRecord", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.providerCanAddResources(#auth, #interoperabilityRecord)")
-    public ResponseEntity<InteroperabilityRecord> addCatalogueInteroperabilityRecord(@RequestBody InteroperabilityRecord interoperabilityRecord,
-                                                                                     @PathVariable String catalogueId,
-                                                                                     @Parameter(hidden = true) Authentication auth) {
-        InteroperabilityRecordBundle ret = this.interoperabilityRecordService.add(new InteroperabilityRecordBundle(interoperabilityRecord), catalogueId, auth);
-        logger.info("Added the Interoperability Record with title '{}' and id '{}' in the Catalogue '{}'",
-                interoperabilityRecord.getTitle(), interoperabilityRecord.getId(), catalogueId);
+    @PostMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or " +
+            "@securityService.providerCanAddResources(#auth, #interoperabilityRecord, null)")
+    public ResponseEntity<?> addCatalogueInteroperabilityRecord(@RequestBody LinkedHashMap<String, Object> interoperabilityRecord,
+                                                                @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        InteroperabilityRecordBundle bundle = new InteroperabilityRecordBundle();
+        bundle.setInteroperabilityRecord(interoperabilityRecord);
+        bundle.setCatalogueId(catalogueId);
+        InteroperabilityRecordBundle ret = guidelineService.add(bundle, auth);
+        logger.info("Added Interoperability Record with id '{}' in the Catalogue '{}'", interoperabilityRecord.get("id"), catalogueId);
         return new ResponseEntity<>(ret.getInteroperabilityRecord(), HttpStatus.CREATED);
     }
 
     @Operation(description = "Updates the Interoperability Record of the specific Catalogue.")
-    @PutMapping(path = "{catalogueId}/interoperabilityRecord", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#interoperabilityRecord.id)")
-    public ResponseEntity<InteroperabilityRecord> updateCatalogueInteroperabilityRecord(@RequestBody InteroperabilityRecord interoperabilityRecord,
-                                                                                        @PathVariable String catalogueId,
-                                                                                        @Parameter(hidden = true) Authentication auth) {
-        InteroperabilityRecordBundle ret = this.interoperabilityRecordService.update(new InteroperabilityRecordBundle(interoperabilityRecord), catalogueId, auth);
-        logger.info("Updated the Interoperability Record with title '{}' and id '{} of the Catalogue '{}'",
-                interoperabilityRecord.getTitle(), interoperabilityRecord.getId(), catalogueId);
-        return new ResponseEntity<>(ret.getInteroperabilityRecord(), HttpStatus.OK);
-    }
-
-    @Operation(description = "Get all the Interoperability Records of a specific Provider of a specific Catalogue.")
-    @GetMapping(path = "{catalogueId}/{providerId}/interoperabilityRecord/all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<InteroperabilityRecord>> getProviderInteroperabilityRecords(@PathVariable String catalogueId,
-                                                                                             @PathVariable("providerId") String providerId,
-                                                                                             @Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> params) {
-        FacetFilter ff = FacetFilter.from(params);
-        ff.setResourceType("interoperability_record");
-        ff.addFilter("published", false);
-        ff.addFilter("catalogue_id", catalogueId);
-        ff.addFilter("provider_id", providerId);
-        Paging<InteroperabilityRecord> paging = genericResourceService.getResults(ff).map(r -> ((InteroperabilityRecordBundle) r).getPayload());
-        return ResponseEntity.ok(paging);
-    }
-
-    @Operation(description = "Returns the InteroperabilityRecordBundle of the specific Catalogue with the given id.")
-    @GetMapping(path = "{catalogueId}/interoperabilityRecord/bundle/{interoperabilityRecordId}",
-            produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #interoperabilityRecordId)")
-    public ResponseEntity<InteroperabilityRecordBundle> getCatalogueInteroperabilityRecordBundle(@PathVariable("catalogueId") String catalogueId,
-                                                                                     @PathVariable("interoperabilityRecordId") String interoperabilityRecordId,
-                                                                                     @Parameter(hidden = true) Authentication auth) {
-        return new ResponseEntity<>(interoperabilityRecordService.get(interoperabilityRecordId, catalogueId, false), HttpStatus.OK);
-    }
-
-    @Hidden
-    @GetMapping(path = {"{catalogueId}/interoperabilityRecord/loggingInfoHistory/{interoperabilityRecordId}"}, produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') or @securityService.isResourceAdmin(#auth, #interoperabilityRecordId)")
-    public ResponseEntity<Paging<LoggingInfo>> interoperabilityRecordLoggingInfoHistory(@PathVariable("catalogueId") String catalogueId,
-                                                                                        @PathVariable("interoperabilityRecordId") String interoperabilityRecordId,
-                                                                                        @Parameter(hidden = true) Authentication auth) {
-        InteroperabilityRecordBundle bundle = interoperabilityRecordService.get(interoperabilityRecordId, catalogueId, false);
-        Paging<LoggingInfo> loggingInfoHistory = interoperabilityRecordService.getLoggingInfoHistory(bundle);
-        return ResponseEntity.ok(loggingInfoHistory);
+    @PutMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isResourceAdmin(#auth,#interoperabilityRecord['id'])")
+    public ResponseEntity<?> updateCatalogueInteroperabilityRecord(@RequestBody LinkedHashMap<String, Object> interoperabilityRecord,
+                                                                   @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                   @RequestParam(required = false) String comment,
+                                                                   @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = interoperabilityRecord.get("id").toString();
+        InteroperabilityRecordBundle bundle = guidelineService.get(id, catalogueId);
+        bundle.setInteroperabilityRecord(interoperabilityRecord);
+        bundle = guidelineService.update(bundle, comment, auth);
+        logger.info("Updated the Interoperability Record with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getInteroperabilityRecord(), HttpStatus.OK);
     }
 
     @Operation(description = "Deletes the Interoperability Record of the specific Catalogue with the given id.")
-    @DeleteMapping(path = "{catalogueId}/interoperabilityRecord/{interoperabilityRecordId}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAdminAccess(#auth, #catalogueId)")
-    public ResponseEntity<InteroperabilityRecord> deleteCatalogueInteroperabilityRecord(@PathVariable("catalogueId") String catalogueId,
-                                                                                        @PathVariable("interoperabilityRecordId") String interoperabilityRecordId,
-                                                                                        @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        InteroperabilityRecordBundle interoperabilityRecordBundle = interoperabilityRecordService.get(interoperabilityRecordId, catalogueId, false);
-        if (interoperabilityRecordBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
-        }
-        interoperabilityRecordService.delete(interoperabilityRecordBundle);
-        logger.info("Deleted the Interoperability Record with title '{}' and id '{}'",
-                interoperabilityRecordBundle.getInteroperabilityRecord().getTitle(), interoperabilityRecordBundle.getId());
-        return new ResponseEntity<>(interoperabilityRecordBundle.getInteroperabilityRecord(), HttpStatus.OK);
+    @DeleteMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/**")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @securityService.hasAdminAccess(#auth, #cataloguePrefix+'/'+#catalogueSuffix)")
+    public ResponseEntity<?> deleteCatalogueInteroperabilityRecord(@PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
+                                                                   HttpServletRequest request,
+                                                                   @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String interoperabilityRecordId = extractWildcardId(request);
+        InteroperabilityRecordBundle interoperabilityRecord = guidelineService.get(getExternalFilters(interoperabilityRecordId, catalogueId));
+        guidelineService.delete(interoperabilityRecord);
+        logger.info("Deleted the Interoperability Record with id '{}' of the Catalogue '{}'", interoperabilityRecordId, catalogueId);
+        return new ResponseEntity<>(interoperabilityRecord.getInteroperabilityRecord(), HttpStatus.OK);
     }
 
     @Hidden
-    @PatchMapping(path = "{catalogueId}/interoperabilityRecord/auditInteroperabilityRecord/{id}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<InteroperabilityRecordBundle> auditInteroperabilityRecord(@PathVariable("id") String id,
-                                                                                    @PathVariable("catalogueId") String catalogueId,
+    @PatchMapping(path = "{cataloguePrefix}/{catalogueSuffix}/interoperabilityRecord/audit/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<InteroperabilityRecordBundle> auditInteroperabilityRecord(@PathVariable String prefix,
+                                                                                    @PathVariable String suffix,
+                                                                                    @PathVariable String cataloguePrefix, @PathVariable String catalogueSuffix,
                                                                                     @RequestParam(required = false) String comment,
                                                                                     @RequestParam LoggingInfo.ActionType actionType,
                                                                                     @Parameter(hidden = true) Authentication auth) {
-        InteroperabilityRecordBundle interoperabilityRecord = interoperabilityRecordService.audit(id, catalogueId, comment, actionType, auth);
+        String catalogueId = cataloguePrefix + "/" + catalogueSuffix;
+        String id = prefix + "/" + suffix;
+        InteroperabilityRecordBundle interoperabilityRecord = guidelineService.audit(id, catalogueId, comment, actionType, auth);
         return new ResponseEntity<>(interoperabilityRecord, HttpStatus.OK);
+    }
+    //endregion
+
+    //region helper
+    private SearchService.KeyValue[] getExternalFilters(String resourceId, String catalogueId) {
+        return new SearchService.KeyValue[]{
+                new SearchService.KeyValue("externalId", resourceId),
+                new SearchService.KeyValue("catalogue_id", catalogueId)
+        };
+    }
+
+    private String extractWildcardId(HttpServletRequest request) {
+        String path = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+        String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        return new AntPathMatcher().extractPathWithinPattern(pattern, path);
     }
     //endregion
 }

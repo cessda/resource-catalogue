@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers.registry;
 
+import gr.uoa.di.madgik.registry.domain.Facet;
 import gr.uoa.di.madgik.registry.domain.Paging;
 import gr.uoa.di.madgik.resourcecatalogue.domain.*;
 import gr.uoa.di.madgik.resourcecatalogue.service.AuthoritiesMapper;
+import gr.uoa.di.madgik.resourcecatalogue.service.NodeResolver;
 import gr.uoa.di.madgik.resourcecatalogue.service.SecurityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,10 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Profile("beyond")
 @ControllerAdvice
@@ -42,14 +48,17 @@ public class SecureResponseAdvice<T> implements ResponseBodyAdvice<T> {
 
     private final SecurityService securityService;
     private final AuthoritiesMapper authoritiesMapper;
+    private final NodeResolver nodeResolver;
 
     private final String epotEmail;
 
     public SecureResponseAdvice(SecurityService securityService, AuthoritiesMapper authoritiesMapper,
-                                @Value("${catalogue.email-properties.registration-emails.to:registration@catalogue.eu}") String epotEmail) {
+                                @Value("${catalogue.email-properties.registration-emails.to:registration@catalogue.eu}") String epotEmail,
+                                NodeResolver nodeResolver) {
         this.securityService = securityService;
         this.authoritiesMapper = authoritiesMapper;
         this.epotEmail = epotEmail;
+        this.nodeResolver = nodeResolver;
     }
 
     private static final Logger logger = LoggerFactory.getLogger(SecureResponseAdvice.class);
@@ -60,167 +69,117 @@ public class SecureResponseAdvice<T> implements ResponseBodyAdvice<T> {
     }
 
     @Override
-    public T beforeBodyWrite(T t, MethodParameter methodParameter, MediaType mediaType, Class<? extends HttpMessageConverter<?>> aClass, ServerHttpRequest serverHttpRequest, ServerHttpResponse serverHttpResponse) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (t != null && !securityService.hasRole(auth, "ROLE_ADMIN") && !securityService.hasRole(auth, "ROLE_EPOT")) {
-            logger.trace("User is not Admin nor EPOT: attempting to remove sensitive information");
-            if (Collection.class.isAssignableFrom(t.getClass())) {
-                for (T object : ((Collection<T>) t)) {
-                    modifyContent(object, auth);
-                }
-            } else if (Paging.class.isAssignableFrom(t.getClass())) {
-                for (T object : ((Paging<T>) t).getResults()) {
-                    modifyContent(object, auth);
-                }
-            } else {
-                modifyContent(t, auth);
-            }
-            logger.debug("Final Object: {}", t);
-        }
+    public T beforeBodyWrite(T t, MethodParameter methodParameter,
+                             MediaType mediaType,
+                             Class<? extends HttpMessageConverter<?>> aClass,
+                             ServerHttpRequest serverHttpRequest,
+                             ServerHttpResponse serverHttpResponse) {
+        if (t != null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            fixNodeFacets(t);
 
-        return t;
+            if (t != null && !securityService.hasRole(auth, "ROLE_ADMIN") && !securityService.hasRole(auth, "ROLE_EPOT")) {
+                logger.trace("User is not Admin nor EPOT: attempting to remove sensitive information");
+                if (Collection.class.isAssignableFrom(t.getClass())) {
+                    for (T object : ((Collection<T>) t)) {
+                        modifyContent(object, auth);
+                    }
+                } else if (Paging.class.isAssignableFrom(t.getClass())) {
+                    for (T object : ((Paging<T>) t).getResults()) {
+                        modifyContent(object, auth);
+                    }
+                } else {
+                    modifyContent(t, auth);
+                }
+                logger.debug("Final Object: {}", t);
+            }
+
+            return t;
+        }
+        return null;
     }
 
+    private void fixNodeFacets(T t) {
+        if (t instanceof Paging<?> paging && paging.getFacets() != null) {
+            Facet nodeFacet = paging.getFacets()
+                    .stream()
+                    .filter(f -> f.getField().equals("node"))
+                    .findFirst()
+                    .orElse(null);
+            if (nodeFacet != null) {
+                Map<String, String> nodeNamesByPid = nodeResolver.fetchNodes().stream()
+                        .collect(Collectors.toMap(NodeResolver.Node::pid, NodeResolver.Node::name));
+                for (gr.uoa.di.madgik.registry.domain.Value value : nodeFacet.getValues()) {
+                    String name = nodeNamesByPid.get(value.getValue());
+                    if (name != null) {
+                        value.setLabel(name);
+                    }
+                }
+            }
+        }
+    }
+
+    // TODO: also masking mainContact/creators emails on raw (non-Bundle) resource maps returned
+    // directly by listing/getSome/public endpoints is plausible and would match the Bundle-level
+    // behavior below, but isResourceAdmin(auth, id) resolves the resource type via an expensive
+    // sequential 8-way disambiguation (OIDCSecurityService#determineResourceType: several full
+    // fetches wrapped in exception-based control flow) and can NPE when an id doesn't resolve to
+    // any known type. Doing that per row of every listing response doesn't scale. Revisit once
+    // there's a cheap way to check resource ownership from a bare id, then extend this beyond
+    // organisation users.
+    @SuppressWarnings("unchecked")
     protected void modifyContent(T t, Authentication auth) {
-        if (t instanceof CatalogueBundle) {
-            modifyCatalogueBundle(t, auth);
-        } else if (t instanceof Catalogue) {
-            modifyCatalogue(t, auth);
-        } else if (t instanceof ProviderBundle) {
-            modifyProviderBundle(t, auth);
-        } else if (t instanceof Provider) {
-            modifyProvider(t, auth);
-        } else if (t instanceof ServiceBundle) {
-            modifyServiceBundle(t, auth);
-        } else if (t instanceof Service) {
-            modifyService(t, auth);
-        } else if (t instanceof TrainingResourceBundle) {
-            modifyTrainingResourceBundle(t, auth);
-        } else if (t instanceof TrainingResource) {
-            modifyTrainingResource(t, auth);
-        } else if (t instanceof DeployableServiceBundle) {
-            modifyDeployableServiceBundle(t, auth);
-        } else if (t instanceof InteroperabilityRecordBundle) {
-            modifyInteroperabilityRecordBundle(t, auth);
+        if (t instanceof OrganisationBundle) {
+            modifyOrganisationBundle(t, auth);
         } else if (t instanceof AdapterBundle) {
             modifyAdapterBundle(t, auth);
-        } else if (t instanceof Adapter) {
-            modifyAdapter(t, auth);
+        } else if (t instanceof ServiceBundle) {
+            modifyServiceBundle(t, auth);
+        } else if (t instanceof CatalogueBundle) {
+            modifyCatalogueBundle(t, auth);
+        } else if (t instanceof DatasourceBundle) {
+            modifyDatasourceBundle(t, auth);
+        } else if (t instanceof TrainingResourceBundle) {
+            modifyTrainingResourceBundle(t, auth);
+        } else if (t instanceof DeployableApplicationBundle) {
+            modifyDeployableApplicationBundle(t, auth);
+        } else if (t instanceof InteroperabilityRecordBundle) {
+            modifyInteroperabilityRecordBundle(t, auth);
         } else if (t instanceof LoggingInfo) {
             modifyLoggingInfo(t);
+        } else if (t instanceof LinkedHashMap) {
+            modifyOrganisationMap((LinkedHashMap<String, Object>) t, auth);
         }
     }
 
-    private void modifyService(T service, Authentication auth) {
-        if (!this.securityService.isResourceAdmin(auth, ((Service) service).getId())) {
-            ((Service) service).setMainContact(null);
-            ((Service) service).setSecurityContactEmail(null);
+    /**
+     * Strips the "users" list (organisation admins/editors) from a raw organisation map returned
+     * directly by a controller (e.g. public views, getSome), since the Bundle-wrapped path below
+     * only covers responses still wrapped in OrganisationBundle. Identified by the presence of a
+     * "users" key, which is unique to the organisation schema among resource types.
+     */
+    private void modifyOrganisationMap(LinkedHashMap<String, Object> resource, Authentication auth) {
+        if (resource == null || resource.get("id") == null || !resource.containsKey("users")) {
+            return;
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyServiceBundle(T serviceBundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((ServiceBundle) serviceBundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((ServiceBundle) serviceBundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((ServiceBundle) serviceBundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((ServiceBundle) serviceBundle).getLatestOnboardingInfo());
-
-        if (!this.securityService.isResourceAdmin(auth, ((ServiceBundle) serviceBundle).getId())) {
-            ((ServiceBundle) serviceBundle).getService().setMainContact(null);
-            ((ServiceBundle) serviceBundle).getService().setSecurityContactEmail(null);
-            ((ServiceBundle) serviceBundle).getMetadata().setTerms(null);
-        }
-    }
-
-    private void modifyTrainingResource(T trainingResource, Authentication auth) {
-        if (!this.securityService.isResourceAdmin(auth, ((TrainingResource) trainingResource).getId())) {
-            ((TrainingResource) trainingResource).setContact(null);
+        String id = resource.get("id").toString();
+        if (!this.securityService.hasAdminAccess(auth, id)) {
+            resource.put("users", null);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void modifyTrainingResourceBundle(T trainingResourceBundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((TrainingResourceBundle) trainingResourceBundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((TrainingResourceBundle) trainingResourceBundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((TrainingResourceBundle) trainingResourceBundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((TrainingResourceBundle) trainingResourceBundle).getLatestOnboardingInfo());
+    private void modifyOrganisationBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((OrganisationBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((OrganisationBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((OrganisationBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((OrganisationBundle) bundle).getLatestOnboardingInfo());
 
-        if (!this.securityService.isResourceAdmin(auth, ((TrainingResourceBundle) trainingResourceBundle).getId())) {
-            ((TrainingResourceBundle) trainingResourceBundle).getTrainingResource().setContact(null);
-            ((TrainingResourceBundle) trainingResourceBundle).getMetadata().setTerms(null);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyDeployableServiceBundle(T deployableServiceBundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((DeployableServiceBundle) deployableServiceBundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((DeployableServiceBundle) deployableServiceBundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((DeployableServiceBundle) deployableServiceBundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((DeployableServiceBundle) deployableServiceBundle).getLatestOnboardingInfo());
-
-        if (!this.securityService.isResourceAdmin(auth, ((DeployableServiceBundle) deployableServiceBundle).getId())) {
-            ((DeployableServiceBundle) deployableServiceBundle).getMetadata().setTerms(null);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyInteroperabilityRecordBundle(T interoperabilityRecordBundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getLatestOnboardingInfo());
-
-        if (!this.securityService.isResourceAdmin(auth, ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getId())) {
-            ((InteroperabilityRecordBundle) interoperabilityRecordBundle).getMetadata().setTerms(null);
-        }
-    }
-
-    private void modifyProvider(T provider, Authentication auth) {
-        if (!this.securityService.hasAdminAccess(auth, ((Provider) provider).getId())) {
-            ((Provider) provider).setMainContact(null);
-            ((Provider) provider).setUsers(null);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyProviderBundle(T bundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((ProviderBundle) bundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((ProviderBundle) bundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((ProviderBundle) bundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((ProviderBundle) bundle).getLatestOnboardingInfo());
-
-        if (!this.securityService.hasAdminAccess(auth, ((ProviderBundle) bundle).getId())) {
-            ((ProviderBundle) bundle).getProvider().setMainContact(null);
-            ((ProviderBundle) bundle).getProvider().setUsers(null);
-            ((ProviderBundle) bundle).getMetadata().setTerms(null);
-        }
-    }
-
-    private void modifyCatalogue(T catalogue, Authentication auth) {
-        if (!this.securityService.hasAdminAccess(auth, ((Catalogue) catalogue).getId())) {
-            ((Catalogue) catalogue).setMainContact(null);
-            ((Catalogue) catalogue).setUsers(null);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyCatalogueBundle(T bundle, Authentication auth) {
-        modifyLoggingInfoList((T) ((CatalogueBundle) bundle).getLoggingInfo());
-        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestAuditInfo());
-        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestUpdateInfo());
-        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestOnboardingInfo());
-
-        if (!this.securityService.hasAdminAccess(auth, ((CatalogueBundle) bundle).getId())) {
-            ((CatalogueBundle) bundle).getCatalogue().setMainContact(null);
-            ((CatalogueBundle) bundle).getCatalogue().setUsers(null);
-            ((CatalogueBundle) bundle).getMetadata().setTerms(null);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void modifyAdapter(T adapter, Authentication auth) {
-        if (!this.securityService.hasAdapterAccess(auth, ((Adapter) adapter).getId())) {
-            ((Adapter) adapter).setAdmins(null);
+        if (!this.securityService.hasAdminAccess(auth, ((OrganisationBundle) bundle).getId())) {
+            LinkedHashMap<String, Object> org = ((OrganisationBundle) bundle).getOrganisation();
+            nullifyMainContactEmails(org);
+            org.put("users", null);
+            ((OrganisationBundle) bundle).getMetadata().setTerms(null);
         }
     }
 
@@ -231,8 +190,105 @@ public class SecureResponseAdvice<T> implements ResponseBodyAdvice<T> {
         modifyLoggingInfo((T) ((AdapterBundle) bundle).getLatestUpdateInfo());
         modifyLoggingInfo((T) ((AdapterBundle) bundle).getLatestOnboardingInfo());
 
-        if (!this.securityService.hasAdapterAccess(auth, ((AdapterBundle) bundle).getId())) {
+        if (!this.securityService.isResourceAdmin(auth, ((AdapterBundle) bundle).getId())) {
+            nullifyCreatorEmails(((AdapterBundle) bundle).getAdapter());
             ((AdapterBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyServiceBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((ServiceBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((ServiceBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((ServiceBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((ServiceBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((ServiceBundle) bundle).getId())) {
+            nullifyMainContactEmails(((ServiceBundle) bundle).getService());
+            ((ServiceBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyCatalogueBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((CatalogueBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((CatalogueBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((CatalogueBundle) bundle).getId())) {
+            nullifyMainContactEmails(((CatalogueBundle) bundle).getCatalogue());
+            ((CatalogueBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyDatasourceBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((DatasourceBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((DatasourceBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((DatasourceBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((DatasourceBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((DatasourceBundle) bundle).getId())) {
+            nullifyMainContactEmails(((DatasourceBundle) bundle).getDatasource());
+            ((DatasourceBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyTrainingResourceBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((TrainingResourceBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((TrainingResourceBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((TrainingResourceBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((TrainingResourceBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((TrainingResourceBundle) bundle).getId())) {
+            nullifyCreatorEmails(((TrainingResourceBundle) bundle).getTrainingResource());
+            ((TrainingResourceBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyDeployableApplicationBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((DeployableApplicationBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((DeployableApplicationBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((DeployableApplicationBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((DeployableApplicationBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((DeployableApplicationBundle) bundle).getId())) {
+            nullifyCreatorEmails(((DeployableApplicationBundle) bundle).getDeployableApplication());
+            ((DeployableApplicationBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void modifyInteroperabilityRecordBundle(T bundle, Authentication auth) {
+        modifyLoggingInfoList((T) ((InteroperabilityRecordBundle) bundle).getLoggingInfo());
+        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) bundle).getLatestAuditInfo());
+        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) bundle).getLatestUpdateInfo());
+        modifyLoggingInfo((T) ((InteroperabilityRecordBundle) bundle).getLatestOnboardingInfo());
+
+        if (!this.securityService.isResourceAdmin(auth, ((InteroperabilityRecordBundle) bundle).getId())) {
+            nullifyCreatorEmails(((InteroperabilityRecordBundle) bundle).getInteroperabilityRecord());
+            ((InteroperabilityRecordBundle) bundle).getMetadata().setTerms(null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void nullifyMainContactEmails(LinkedHashMap<String, Object> resource) {
+        Map<String, Object> mainContact = (Map<String, Object>) resource.get("mainContact");
+        if (mainContact != null) {
+            mainContact.put("email", null);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void nullifyCreatorEmails(LinkedHashMap<String, Object> resource) {
+        List<Map<String, Object>> creators = (List<Map<String, Object>>) resource.get("creators");
+        if (creators != null) {
+            for (Map<String, Object> creator : creators) {
+                creator.put("email", null);
+            }
         }
     }
 

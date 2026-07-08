@@ -3,7 +3,7 @@
     <parent>
         <groupId>gr.uoa.di.madgik</groupId>
         <artifactId>resource-catalogue</artifactId>
-        <version>5.4.0</version>
+        <version>6.2.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -41,9 +41,24 @@
                     <groupId>gr.uoa.di.madgik</groupId>
                     <artifactId>resource-catalogue-matomo</artifactId>
                 </dependency>
+                <dependency>
+                    <groupId>org.flowable</groupId>
+                    <artifactId>flowable-spring-boot-starter</artifactId>
+                    <version>7.1.0</version>
+                </dependency>
             </dependencies>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/manager/ProviderManager.java</exclude>
+                                <exclude>**/manager/lot1/*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-dependency-plugin</artifactId>
@@ -90,6 +105,77 @@
             </dependencies>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>-implicit:none</arg>
+                            </compilerArgs>
+                            <excludes>
+                                <exclude>**/config/ResourceCatalogueModelMapperConfig.java</exclude>
+                                <exclude>**/config/security/SecurityConfig.java</exclude>
+                                <exclude>**/config/security/InMemoryAuthoritiesMapper.java</exclude>
+                                <exclude>**/manager/AdapterManager.java</exclude>
+                                <exclude>**/manager/DeployableApplicationManager.java</exclude>
+                                <exclude>**/manager/OrganisationManager.java</exclude>
+                                <exclude>**/manager/aspects/PostProcessingAspect.java</exclude>
+                                <exclude>**/service/EmailService.java</exclude>
+                                <exclude>**/service/OIDCSecurityService.java</exclude>
+                                <exclude>**/utils/OrganisationCascadeLifecycleManager.java</exclude>
+                                <exclude>**/utils/RelationshipValidator.java</exclude>
+                                <exclude>**/manager/Public**.java</exclude>
+                                <exclude>**/manager/DatasourceManager.java</exclude>
+                                <exclude>**/manager/InteroperabilityRecordManager.java</exclude>
+                                <exclude>**/manager/ResourceCatalogueGenericManager.java</exclude>
+                                <exclude>**/manager/ServiceManager.java</exclude>
+                                <exclude>**/manager/TrainingResourceManager.java</exclude>
+                                <exclude>**/manager/aspects/PublicResourcesManagementAspect.java</exclude>
+                                <exclude>**/manager/CatalogueManager.java</exclude>
+                                <exclude>**/manager/ConfigurationTemplateInstanceManager.java</exclude>
+                                <exclude>**/manager/ConfigurationTemplateManager.java</exclude>
+                                <exclude>**/manager/CSVManager.java</exclude>
+                                <exclude>**/manager/pids/PidServiceRegistrationConsistency.java</exclude>
+                                <exclude>**/manager/PublicAdapterService.java</exclude>
+                                <exclude>**/manager/PublicConfigurationTemplateInstanceService.java</exclude>
+                                <exclude>**/manager/PublicDatasourceService.java</exclude>
+                                <exclude>**/manager/PublicDeployableApplicationService.java</exclude>
+                                <exclude>**/manager/PublicInteroperabilityRecordService.java</exclude>
+                                <exclude>**/manager/PublicOrganisationService.java</exclude>
+                                <exclude>**/manager/PublicServiceService.java</exclude>
+                                <exclude>**/manager/PublicTrainingResourceService.java</exclude>
+                                <exclude>**/manager/ResourceInteroperabilityRecordManager.java</exclude>
+                                <exclude>**/service/sync/AbstractSyncService.java</exclude>
+                                <exclude>**/service/sync/ProviderSync.java</exclude>
+                                <exclude>**/service/sync/ServiceSync.java</exclude>
+                                <exclude>**/service/sync/DatasourceSync.java</exclude>
+                                <exclude>**/service/sync/TrainingResourceSync.java</exclude>
+                                <exclude>**/manager/AbstractPublicResourceManager.java</exclude>
+                                <exclude>**/manager/ResourceCatalogueManager.java</exclude>
+                                <exclude>**/manager/PublicResourceInteroperabilityRecordService.java</exclude>
+                                <exclude>**/onboarding/**</exclude>
+                                <exclude>**/manager/VocabularyManager.java</exclude>
+                                <exclude>**/manager/aspects/MailManagementAspect.java</exclude>
+                                <exclude>**/manager/aspects/OnboardingManagementAspect.java</exclude>
+                                <exclude>**/manager/aspects/SupportManagementAspect.java</exclude>
+                                <exclude>**/manager/DefaultStatisticsManager.java</exclude>
+                                <exclude>**/manager/PublicConfigurationTemplateService.java</exclude>
+                                <exclude>**/utils/DefaultFacetLabelService.java</exclude>
+                                <exclude>**/utils/CatalogueResourceAggregator.java</exclude>
+                                <exclude>**/utils/InternalToPublicConsistency.java</exclude>
+                            </excludes>
+                                <testExcludes>
+                                    <testExclude>**/utils/TestUtils.java</testExclude>
+                                    <testExclude>**/integration/LoggingInfoIntegrationTest.java</testExclude>
+                                    <testExclude>**/integration/ProviderIntegrationTest.java</testExclude>
+                                    <testExclude>**/integration/ServiceProviderRegistrationIntegrationTest.java</testExclude>
+                                    <testExclude>**/unit/OrganisationManagerUnitTest.java</testExclude>
+                                    <testExclude>**/unit/ServiceManagerUnitTest.java</testExclude>
+                                    <testExclude>**/unit/TrainingResourceManagerUnitTest.java</testExclude>
+                                    <testExclude>**/unit/DatasourceManagerUnitTest.java</testExclude>
+                                </testExcludes>
+                        </configuration>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-dependency-plugin</artifactId>
@@ -139,7 +225,7 @@
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>org.springframework.boot</groupId>
@@ -157,26 +243,26 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-freemarker</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
 
         <!-- Redis Session -->
         <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-data-redis</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <artifactId>spring-boot-starter-session-data-redis</artifactId>
         </dependency>
 
         <dependency>
@@ -211,19 +297,19 @@
             <groupId>gr.uoa.di.madgik</groupId>
             <artifactId>request-logging-starter</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+        </dependency>
 
 
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-mapper-asl</artifactId>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -234,8 +320,8 @@
             <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.sun.mail</groupId>
-            <artifactId>javax.mail</artifactId>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -294,7 +380,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.79</version>
+            <version>1.84</version>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -309,24 +395,18 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
-            <version>5.2.0</version>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>elasticsearch</artifactId>
+            <artifactId>testcontainers-elasticsearch</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -340,7 +420,6 @@
             <version>1.11.0</version>
             <scope>compile</scope>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -364,10 +443,24 @@
                 <artifactId>maven-dependency-plugin</artifactId>
             </plugin>
             <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>verify</phase>
+                        <goals><goal>report-aggregate</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/site/jacoco-aggregate</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                     <includes>
                         <include>**/*UnitTest.java</include>
                     </includes>
@@ -377,7 +470,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <argLine>@{argLine} -XX:+EnableDynamicAgentLoading -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                     <includes>
                         <include>**/*IntegrationTest.java</include>
                     </includes>

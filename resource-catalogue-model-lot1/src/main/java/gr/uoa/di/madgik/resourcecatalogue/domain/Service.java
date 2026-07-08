@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.domain;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import gr.uoa.di.madgik.resourcecatalogue.annotation.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -551,7 +551,7 @@ public class Service implements Identifiable {
     public String toString() {
         try {
             return new ObjectMapper().writeValueAsString(this);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException(e);
         }
     }

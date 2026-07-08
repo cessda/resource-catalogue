@@ -1,0 +1,439 @@
+package gr.uoa.di.madgik.resourcecatalogue.manager;
+
+import gr.uoa.di.madgik.registry.domain.FacetFilter;
+import gr.uoa.di.madgik.registry.domain.Paging;
+import gr.uoa.di.madgik.registry.domain.Resource;
+import gr.uoa.di.madgik.registry.exception.ResourceException;
+import gr.uoa.di.madgik.registry.exception.ResourceNotFoundException;
+import gr.uoa.di.madgik.registry.service.GenericResourceService;
+import gr.uoa.di.madgik.registry.service.SearchService;
+import gr.uoa.di.madgik.resourcecatalogue.config.NodeProperties;
+import gr.uoa.di.madgik.resourcecatalogue.domain.Bundle;
+import gr.uoa.di.madgik.resourcecatalogue.domain.CatalogueBundle;
+import gr.uoa.di.madgik.resourcecatalogue.domain.Identifiers;
+import gr.uoa.di.madgik.resourcecatalogue.domain.LoggingInfo;
+import gr.uoa.di.madgik.resourcecatalogue.dto.UserInfo;
+import gr.uoa.di.madgik.resourcecatalogue.onboarding.WorkflowService;
+import gr.uoa.di.madgik.resourcecatalogue.service.IdCreator;
+import gr.uoa.di.madgik.resourcecatalogue.service.ResourceCatalogueGenericService;
+import gr.uoa.di.madgik.resourcecatalogue.service.SecurityService;
+import gr.uoa.di.madgik.resourcecatalogue.service.VocabularyService;
+import gr.uoa.di.madgik.resourcecatalogue.utils.AuthenticationInfo;
+import gr.uoa.di.madgik.resourcecatalogue.utils.FacetLabelService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
+import java.util.stream.Stream;
+
+//TODO: resource-specific method -> inside corresponding manager/service
+//TODO: true universal method (all resources will use it) -> inside here (generic)
+//TODO: some but not all resources need a method -> create a new interface with default implementation
+
+@org.springframework.stereotype.Service("resourceCatalogueGenericManager")
+public abstract class ResourceCatalogueGenericManager<T extends Bundle> implements ResourceCatalogueGenericService<T> {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResourceCatalogueGenericManager.class);
+
+    protected final GenericResourceService genericResourceService;
+    protected final SecurityService securityService;
+    protected final VocabularyService vocabularyService;
+    protected final IdCreator idCreator;
+    protected final WorkflowService workflowService;
+
+    @Autowired
+    private FacetLabelService facetLabelService;
+
+    @Autowired
+    private NodeProperties nodeProperties;
+
+    protected abstract String getResourceTypeName();
+
+    protected ResourceCatalogueGenericManager(GenericResourceService genericResourceService,
+                                              IdCreator idCreator,
+                                              SecurityService securityService,
+                                              VocabularyService vocabularyService,
+                                              WorkflowService workflowService) {
+        this.genericResourceService = genericResourceService;
+        this.idCreator = idCreator;
+        this.securityService = securityService;
+        this.vocabularyService = vocabularyService;
+        this.workflowService = workflowService;
+    }
+
+    public void createIdentifiers(Bundle bundle) {
+        String catalogueId = bundle.getCatalogueId();
+        if (catalogueId == null || catalogueId.isEmpty()) {
+            this.createIdentifiers(bundle, getResourceTypeName(), false);
+        } else {
+            validateCatalogueExistence(catalogueId);
+            this.createIdentifiers(bundle, getResourceTypeName(), true);
+        }
+        bundle.setId(bundle.getIdentifiers().getOriginalId());
+    }
+
+    public void createIdentifiers(Bundle bundle, String resourceType, boolean external) {
+        Identifiers identifiers = new Identifiers();
+        identifiers.setPid(idCreator.generate(resourceType));
+        identifiers.setOriginalId(identifiers.getPid() + "00");
+        if (external) {
+            idCreator.validateId(bundle.getId());
+            identifiers.setExternalId(bundle.getId());
+        } else {
+            identifiers.setExternalId(null);
+        }
+        bundle.setIdentifiers(identifiers);
+    }
+
+    private void validateCatalogueExistence(String catalogueId) {
+        genericResourceService.get("catalogue",
+                new SearchService.KeyValue("resource_internal_id", catalogueId));
+    }
+
+    private void setNodePid(T bundle) {
+        Object resourceNodePid = bundle.getPayload().get("nodePID");
+        if (nodeProperties.getPid().isFixed() || resourceNodePid == null || resourceNodePid.toString().isBlank()) {
+            bundle.getPayload().put("nodePID", nodeProperties.getPid().getValue());
+        }
+    }
+
+    @Override
+    public T get(String id) {
+        return genericResourceService.get(
+                getResourceTypeName(),
+                new SearchService.KeyValue("resource_internal_id", id),
+                new SearchService.KeyValue("published", "false")
+        );
+    }
+
+    @Override
+    public T get(String id, String catalogueId) {
+        if (catalogueId != null && !catalogueId.isBlank()) {
+            return genericResourceService.get(getResourceTypeName(),
+                    new SearchService.KeyValue("resource_internal_id", id),
+                    new SearchService.KeyValue("catalogue_id", catalogueId),
+                    new SearchService.KeyValue("published", "false"));
+        }
+        return get(id);
+    }
+
+    //TODO: probably we do not need this IF we use the same get for drafts and non-drafts
+    //TODO: draft functionality is default-catalogue specific, meaning the IDs are always unique
+    @Override
+    public T get(SearchService.KeyValue... keyValues) {
+        return genericResourceService.get(getResourceTypeName(), keyValues);
+    }
+
+    @Override
+    public T getOrElseReturnNull(String id) {
+        T bundle;
+        try {
+            bundle = get(id);
+        } catch (ResourceException | ResourceNotFoundException e) {
+            return null;
+        }
+        return bundle;
+    }
+
+    @Override
+    public Paging<T> getMyProviders(FacetFilter ff, Authentication auth, String resourceType) {
+        ff.setResourceType(resourceType);
+        ff.setQuantity(Integer.MAX_VALUE);
+        ff.addFilter("published", false);
+        ff.addFilter("users", AuthenticationInfo.getEmail(auth).toLowerCase());
+        ff.addOrderBy("name", "asc");
+        return genericResourceService.getResults(ff);
+    }
+
+    @Override
+    public Paging<T> getMyResources(FacetFilter filter, Authentication auth) {
+        FacetFilter ff = new FacetFilter();
+        ff.addFilter("draft", false); // A Draft Provider cannot have resources
+        List<T> providers = getMyProviders(ff, auth, "organisation").getResults();
+        if (providers.isEmpty()) {
+            return new Paging<>();
+        }
+
+        filter.setResourceType(getResourceTypeName());
+        filter.setQuantity(Integer.MAX_VALUE);
+        filter.addFilter("published", false);
+        filter.addFilter("resource_owner", providers.stream().map(T::getId).toList());
+        filter.addOrderBy("name", "asc");
+        return genericResourceService.getResults(filter);
+    }
+
+    @Override
+    public List<gr.uoa.di.madgik.resourcecatalogue.dto.Value> listResources(String catalogueId) {
+        List<Bundle> bundles = Stream.concat(
+                this.getAll(createFacetFilter(catalogueId, false, getResourceTypeName()))
+                        .getResults()
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .map(c -> (Bundle) c),
+                this.getAll(createFacetFilter(catalogueId, true, getResourceTypeName()))
+                        .getResults()
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .map(c -> (Bundle) c)
+                        .filter(b -> !Objects.equals(b.getCatalogueId(), catalogueId))
+        ).toList();
+
+        List<gr.uoa.di.madgik.resourcecatalogue.dto.Value> allResources = bundles.stream()
+                .map(b -> new gr.uoa.di.madgik.resourcecatalogue.dto.Value(
+                        b.getId(),
+                        b.getPayload().get("name").toString()
+                ))
+                .toList();
+
+        return allResources;
+    }
+
+    private FacetFilter createFacetFilter(String catalogueId, boolean isPublic, String resourceType) {
+        FacetFilter ff = new FacetFilter();
+        ff.setQuantity(Integer.MAX_VALUE);
+        ff.addFilter("status", "approved");
+        ff.addFilter("active", true);
+        ff.addFilter("draft", false);
+        if (isPublic) {
+            ff.addFilter("published", true);
+        } else {
+            //TODO: facetfilter to support null facet values
+            if (catalogueId != null && !catalogueId.isBlank()) {
+                ff.addFilter("catalogue_id", catalogueId);
+            }
+            ff.addFilter("published", false);
+        }
+        ff.setResourceType(resourceType);
+        return ff;
+    }
+
+    @Override
+    public Paging<T> getAll(FacetFilter ff, Authentication auth) {
+        ff.setResourceType(getResourceTypeName());
+        boolean authenticated = auth != null && auth.isAuthenticated();
+        if (authenticated) {
+            if (securityService.hasPortalAdminRole(auth)) {
+                return getAll(ff);
+            }
+            if (securityService.hasRole(auth, "ROLE_PROVIDER")) {
+                //TODO: this works only for old Catalogues, Providers. How to proceed
+//                ff.addFilter("users", AuthenticationInfo.getEmail(auth).toLowerCase());
+                return getAll(ff);
+            }
+        }
+        ff.addFilter("status", "approved");
+        ff.addFilter("active", true);
+        return getAll(ff);
+    }
+
+    @Override
+    public Paging<T> getAll(FacetFilter ff) {
+        ff.setResourceType(getResourceTypeName());
+        Paging<T> paging = genericResourceService.getResults(ff);
+        if (!paging.getResults().isEmpty() && !paging.getFacets().isEmpty()) {
+            paging.setFacets(facetLabelService.generateLabels(paging.getFacets()));
+        }
+        return paging;
+    }
+
+    @Override
+    public T add(T bundle, Authentication auth) {
+        createIdentifiers(bundle);
+        setNodePid(bundle);
+        T ret = genericResourceService.add(getResourceTypeName(), bundle);
+        try {
+            ret = workflowService.onboard(getResourceTypeName(), ret, auth);
+            ret = genericResourceService.update(getResourceTypeName(), ret); // adds logging info - possibly replace with generic update
+        } catch (ResourceException e) {
+            genericResourceService.delete(getResourceTypeName(), bundle.getId());
+            throw e;
+        } catch (IllegalStateException e) {
+            logger.warn(e.getMessage());
+        }
+        return ret;
+    }
+
+    @Override
+    public T update(T bundle, Authentication auth) {
+        if (!hasChanged(bundle)) {
+            return bundle;
+        }
+        bundle.markUpdate(UserInfo.of(auth), null);
+        return genericResourceService.update(getResourceTypeName(), bundle);
+    }
+
+    private boolean hasChanged(T bundle) {
+        T existing = get(bundle.getId(), bundle.getCatalogueId());
+        return !bundle.equals(existing);
+    }
+
+    public T validate(T bundle) {
+        logger.debug("Validating resource '{}' with id: '{}'", getResourceTypeName(), bundle.getId());
+        return genericResourceService.validate(getResourceTypeName(), bundle);
+    }
+
+    @Override
+    public T audit(String id, String catalogueId, String comment, LoggingInfo.ActionType actionType, Authentication auth) {
+        T existing = get(id, catalogueId);
+        existing.markAudit(comment, actionType, auth);
+
+        logger.info("Audited '{}' with ID '{}' [actionType: {}]", getResourceTypeName(), existing.getId(), actionType);
+        genericResourceService.update(getResourceTypeName(), existing);
+        return existing;
+    }
+
+    @Override
+    public T setSuspend(String id, String catalogueId, boolean suspend, Authentication auth) {
+        T bundle = get(id, catalogueId);
+        suspensionValidation(bundle);
+
+        logger.info("{} resource '{}' with id: '{}'", suspend ? "Suspending" : "Unsuspending",
+                getResourceTypeName(), bundle.getId());
+        bundle.markSuspend(suspend, auth);
+
+        return genericResourceService.update(getResourceTypeName(), bundle);
+    }
+
+    private void suspensionValidation(Bundle bundle) {
+        if (bundle.getMetadata().isPublished()) {
+            throw new ResourceException("You cannot directly suspend a Public resource", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @Override
+    public Paging<T> getRandomResourcesForAuditing(int quantity, int auditingInterval, Authentication auth) {
+        FacetFilter ff = new FacetFilter();
+        ff.setResourceType(getResourceTypeName());
+        ff.setQuantity(10000);
+        ff.addFilter("status", "approved");
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+
+        Paging<T> resourcesPaging = getAll(ff, auth);
+
+        long nowSeconds = Instant.now().getEpochSecond();
+        long thresholdSeconds = Instant.now()
+                .atZone(ZoneId.systemDefault())
+                .minusMonths(auditingInterval)
+                .toEpochSecond();
+
+        Random rng = new Random();
+        List<T> selected = resourcesPaging.getResults().stream()
+                .map(bundle -> {
+                    long weight = overdueWeight(bundle, nowSeconds, thresholdSeconds);
+                    return weight > 0 ? Map.entry(bundle, rng.nextDouble() * weight) : null;
+                })
+                .filter(Objects::nonNull)
+                .sorted(Map.Entry.<T, Double>comparingByValue().reversed())
+                .limit(quantity)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        return new Paging<>(selected.size(), 0, selected.size(), selected, resourcesPaging.getFacets());
+    }
+
+    private long overdueWeight(T bundle, long nowSeconds, long thresholdSeconds) {
+        LoggingInfo auditInfo = bundle.getLatestAuditInfo();
+        if (auditInfo == null) {
+            return nowSeconds; // never audited — maximally overdue
+        }
+        try {
+            long auditEpochSeconds = Long.parseLong(auditInfo.getDate());
+            if (auditEpochSeconds < thresholdSeconds) {
+                return nowSeconds - auditEpochSeconds;
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Malformed audit date for {} '{}': '{}'",
+                    getResourceTypeName(), bundle.getId(), auditInfo.getDate());
+        }
+        return 0;
+    }
+
+    @Override
+    public T addDraft(T bundle, Authentication auth) {
+        bundle.markDraft(auth, null);
+        this.createIdentifiers(bundle, getResourceTypeName(), false);
+        bundle.setId(bundle.getIdentifiers().getOriginalId());
+
+        return genericResourceService.add(getResourceTypeName(), bundle, false);
+    }
+
+    @Override
+    public T updateDraft(T bundle, Authentication auth) {
+        bundle.markUpdate(UserInfo.of(auth), null);
+        return genericResourceService.update(getResourceTypeName(), bundle, false);
+    }
+
+    @Override
+    public void deleteDraft(T bundle) {
+        genericResourceService.delete(getResourceTypeName(), bundle.getId());
+    }
+
+    @Override
+    public T finalizeDraft(T t, Authentication auth) {
+        t = workflowService.onboard(getResourceTypeName(), t, auth);
+        return update(t, auth);
+    }
+
+    //region helper
+    public void blockResourceDeletion(String status, boolean isPublished) {
+        if (status.equals(vocabularyService.get("pending").getId())) {
+            throw new ResourceException("You cannot delete a Template that is under review", HttpStatus.FORBIDDEN);
+        }
+        if (isPublished) {
+            throw new ResourceException("You cannot directly delete a Public Resource", HttpStatus.FORBIDDEN);
+        }
+    }
+    //endregion
+
+    //region unused
+    @Override
+    public String createId(T bundle) {
+        return idCreator.generate(getResourceTypeName());
+    }
+
+    @Override
+    public T save(T bundle) {
+        if (exists(bundle)) { // update
+            logger.debug("Updated Resource: {}", bundle);
+            bundle = this.update(bundle, null);
+        } else { // add
+            // create id
+            String id = createId(bundle);
+            bundle.setId(id);
+            // save
+            logger.debug("Added Resource: {}", bundle);
+            bundle = this.add(bundle, null);
+        }
+        return bundle;
+    }
+
+    @Override
+    public boolean exists(T bundle) {
+        return genericResourceService.exists(getResourceTypeName(), bundle);
+    }
+
+    @Override
+    public Resource getResource(String id) {
+        return null;
+    }
+
+    @Override
+    public Resource getResource(String id, String catalogueId) {
+        return null;
+    }
+
+    @Override
+    public boolean exists(String id) {
+        return false;
+    }
+    //endregion
+}

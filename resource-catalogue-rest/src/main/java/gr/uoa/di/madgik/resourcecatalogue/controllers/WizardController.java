@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,77 +16,85 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import gr.uoa.di.madgik.catalogue.service.ModelService;
 import gr.uoa.di.madgik.registry.exception.ResourceNotFoundException;
-import gr.uoa.di.madgik.resourcecatalogue.domain.*;
-import gr.uoa.di.madgik.catalogue.service.GenericResourceService;
+import gr.uoa.di.madgik.registry.service.GenericResourceService;
+import gr.uoa.di.madgik.resourcecatalogue.config.NodeProperties;
+import gr.uoa.di.madgik.resourcecatalogue.domain.Vocabulary;
 import gr.uoa.di.madgik.resourcecatalogue.service.VocabularyService;
-import gr.uoa.di.madgik.resourcecatalogue.utils.Auditable;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.reactive.function.client.WebClient;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Profile("beyond")
 @Controller
 @RequestMapping("/wizard")
 @Tag(name = "wizard")
+@Hidden
 public class WizardController {
-
-    @Value("${catalogue.id}")
-    private String catalogueId;
-
-    @Value("${catalogue.homepage}")
-    private String homepage;
 
     private static final Logger logger = LoggerFactory.getLogger(WizardController.class);
 
+    private final NodeProperties nodeProperties;
     private final VocabularyService vocabularyService;
     private final ModelService modelService;
     private final GenericResourceService genericService;
+    private final ObjectMapper objectMapper;
+    private WebClient webClient;
+
+    @PostConstruct
+    public void init() {
+        this.webClient = WebClient.builder()
+                .baseUrl(nodeProperties.getRegistry().getUrl())
+                .build();
+    }
 
     public WizardController(VocabularyService vocabularyService,
                             ModelService modelService,
-                            GenericResourceService genericService) {
+                            GenericResourceService genericService,
+                            ObjectMapper objectMapper,
+                            NodeProperties nodeProperties) {
         this.vocabularyService = vocabularyService;
         this.modelService = modelService;
         this.genericService = genericService;
+        this.objectMapper = objectMapper;
+        this.nodeProperties = nodeProperties;
     }
 
     @Operation(summary = "Check Vocabularies Existence")
     @GetMapping("/step1")
     public String checkVocabulariesExistence(Model model) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        ClassPathResource vocabDir = new ClassPathResource("vocabularies");
-        File[] vocabFiles = vocabDir.getFile().listFiles((dir, name) -> name.endsWith(".json"));
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] vocabFiles = resolver.getResources("classpath:vocabularies/*.json");
 
         Map<String, Boolean> vocabStatus = new TreeMap<>();
         boolean allLoaded = true;
 
-        for (File file : vocabFiles) {
-            List<Vocabulary> vocabularies = objectMapper.readValue(file, new TypeReference<>() {
+        for (Resource resource : vocabFiles) {
+            List<Vocabulary> vocabularies = objectMapper.readValue(resource.getInputStream(), new TypeReference<>() {
             });
 
             if (!vocabularies.isEmpty()) {
-                String type = vocabularies.get(0).getType();
+                String type = vocabularies.getFirst().getType();
                 int countInJson = vocabularies.size();
                 int countInDb = vocabularyService.getByType(Vocabulary.Type.fromString(type)).size();
                 boolean fullyPosted = countInDb >= countInJson;
@@ -106,13 +114,12 @@ public class WizardController {
     @Operation(summary = "Load Vocabularies")
     @PostMapping("/step1/loadVocabularies")
     public String loadVocabularies() throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        ClassPathResource vocabDir = new ClassPathResource("vocabularies");
-        File[] vocabularyFiles = vocabDir.getFile().listFiles((dir, name) -> name.endsWith(".json"));
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] vocabularyFiles = resolver.getResources("classpath:vocabularies/*.json");
 
-        if (vocabularyFiles != null) {
-            for (File file : vocabularyFiles) {
-                List<Vocabulary> vocabularies = objectMapper.readValue(file, new TypeReference<>() {
+        if (vocabularyFiles.length > 0) {
+            for (Resource resource : vocabularyFiles) {
+                List<Vocabulary> vocabularies = objectMapper.readValue(resource.getInputStream(), new TypeReference<>() {
                 });
 
                 if (!vocabularies.isEmpty()) {
@@ -136,13 +143,10 @@ public class WizardController {
     @Operation(summary = "Check Models Existence")
     @GetMapping("/step2")
     public String checkModelsExistence(Model model) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] modelFiles = resolver.getResources("classpath:models/*.json");
 
-        ClassPathResource modelDir = new ClassPathResource("models");
-        File[] modelFiles = modelDir.getFile().listFiles((dir, name) -> name.endsWith(".json"));
-
-        if (modelFiles == null || modelFiles.length == 0) {
+        if (modelFiles.length == 0) {
             model.addAttribute("modelStatus", Collections.emptyMap());
             model.addAttribute("allModelsLoading", false);
             model.addAttribute("allModelsLoaded", true);
@@ -152,9 +156,9 @@ public class WizardController {
         Map<String, Boolean> modelStatus = new TreeMap<>();
         boolean nonePosted = true;
 
-        for (File file : modelFiles) {
+        for (Resource resource : modelFiles) {
             try {
-                gr.uoa.di.madgik.catalogue.ui.domain.Model m = objectMapper.readValue(file, gr.uoa.di.madgik.catalogue.ui.domain.Model.class);
+                gr.uoa.di.madgik.catalogue.domain.Model m = objectMapper.readValue(resource.getInputStream(), gr.uoa.di.madgik.catalogue.domain.Model.class);
                 boolean exists;
                 try {
                     exists = modelService.get(m.getId()) != null;
@@ -170,7 +174,7 @@ public class WizardController {
                     nonePosted = false;
                 }
             } catch (Exception e) {
-                logger.warn("Skipping model file [{}]: {}", file.getName(), e.getMessage());
+                logger.warn("Skipping model file [{}]: {}", resource.getFilename(), e.getMessage());
             }
         }
 
@@ -187,14 +191,12 @@ public class WizardController {
     @Operation(summary = "Load Models")
     @PostMapping("/step2/loadModels")
     public String loadModels() throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        ClassPathResource modelDir = new ClassPathResource("models");
-        File[] modelFiles = modelDir.getFile().listFiles((dir, name) -> name.endsWith(".json"));
+        ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        Resource[] modelFiles = resolver.getResources("classpath:models/*.json");
 
-        for (File file : modelFiles) {
+        for (Resource resource : modelFiles) {
             try {
-                gr.uoa.di.madgik.catalogue.ui.domain.Model m = objectMapper.readValue(file, gr.uoa.di.madgik.catalogue.ui.domain.Model.class);
+                gr.uoa.di.madgik.catalogue.domain.Model m = objectMapper.readValue(resource.getInputStream(), gr.uoa.di.madgik.catalogue.domain.Model.class);
 
                 boolean exists;
                 try {
@@ -214,90 +216,38 @@ public class WizardController {
                 }
 
             } catch (Exception e) {
-                logger.error("Failed to process model file [{}]: {}", file.getName(), e.getMessage());
+                logger.error("Failed to process model file [{}]: {}", resource.getFilename(), e.getMessage());
             }
         }
 
         return "redirect:/wizard/step2";
     }
 
-
-    @Operation(summary = "Create main Catalogue")
+    @Operation(summary = "Node Registry Information")
     @GetMapping("/step3")
-    public String createCatalogue(Model model) {
-        Catalogue catalogue = new Catalogue();
-        catalogue.setId(catalogueId);
-        catalogue.setLocation(new ProviderLocation());
-        catalogue.setMainContact(new ProviderMainContact());
-        catalogue.setPublicContacts(new ArrayList<>(List.of(new ProviderPublicContact())));
-        catalogue.setUsers(new ArrayList<>(List.of(new User())));
-
-        // Get countries as Map (ID -> Name)
-        Map<String, String> countries = vocabularyService.getByType(Vocabulary.Type.COUNTRY)
-                .stream()
-                .collect(Collectors.toMap(
-                        Vocabulary::getId,
-                        Vocabulary::getName,
-                        (existing, replacement) -> existing,
-                        LinkedHashMap::new
-                ));
-
-        model.addAttribute("countries", countries);
-        model.addAttribute("catalogue", catalogue);
-        model.addAttribute("id", catalogueId);
-        return "wizard-step3";
-    }
-
-    @PostMapping("/step3/loadCatalogue")
-    public String loadCatalogue(@ModelAttribute Catalogue catalogue, Model model) {
+    public String nodeRegistryInfo(Model model) {
+        boolean isRegistered = false;
         try {
-            logger.info("Loading main Catalogue with ID [{}]", catalogue.getId());
-            addCatalogue(new CatalogueBundle(catalogue));
-            model.addAttribute("successMessage", "Catalogue saved successfully! You can now close the tab!");
-
-//            return "redirect:/wizard/step4";
+            List<Map<String, Object>> nodes = webClient.get()
+                    .header("x-api-key", nodeProperties.getRegistry().getKey())
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                    })
+                    .block();
+            if (nodes != null) {
+                isRegistered = nodes.stream()
+                        .anyMatch(node -> nodeProperties.getPid().getValue().equals(node.get("pid")));
+            }
         } catch (Exception e) {
-            logger.error("Failed to save Catalogue [{}]: {}", catalogue.getId(), e.getMessage());
-            model.addAttribute("errorMessage", "Error saving catalogue: " + e.getMessage());
-            model.addAttribute("catalogue", catalogue);
+            logger.warn("Could not reach node registry to check registration status: {}", e.getMessage());
         }
-
-        model.addAttribute("id", catalogue.getId());
-        model.addAttribute("homepage", homepage);
+        model.addAttribute("isRegistered", isRegistered);
         return "wizard-step3";
     }
 
-    private void addCatalogue(CatalogueBundle catalogue) {
-
-        catalogue.setMetadata(Metadata.createMetadata("system", "system"));
-        List<LoggingInfo> loggingInfoList = createLoggingInfoList();
-        catalogue.setLoggingInfo(loggingInfoList);
-        catalogue.setActive(true);
-        catalogue.setStatus(vocabularyService.get("approved catalogue").getId());
-        catalogue.setAuditState(Auditable.NOT_AUDITED);
-
-        // latestOnboardingInfo
-        catalogue.setLatestOnboardingInfo(loggingInfoList.getFirst());
-
-        genericService.add("catalogue", catalogue);
+    @GetMapping("/success")
+    public String wizardSuccess() {
+        return "wizard-success";
     }
 
-    private static List<LoggingInfo> createLoggingInfoList() {
-        String currentTime = String.valueOf(System.currentTimeMillis());
-        String system = "system";
-        String type = LoggingInfo.Types.ONBOARD.getKey();
-
-        return Stream.of(LoggingInfo.ActionType.REGISTERED, LoggingInfo.ActionType.APPROVED)
-                .map(action -> {
-                    LoggingInfo info = new LoggingInfo();
-                    info.setDate(currentTime);
-                    info.setType(type);
-                    info.setActionType(action.getKey());
-                    info.setUserEmail(system);
-                    info.setUserFullName(system);
-                    info.setUserRole(system);
-                    return info;
-                })
-                .collect(Collectors.toList());
-    }
 }

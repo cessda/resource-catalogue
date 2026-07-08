@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package gr.uoa.di.madgik.resourcecatalogue.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.util.Objects;
+
 public class Identifiers {
 
     @Schema
@@ -26,6 +28,9 @@ public class Identifiers {
     @Schema
     private String pid;
 
+    @Schema
+    private String externalId;
+
     public Identifiers() {
     }
 
@@ -33,6 +38,7 @@ public class Identifiers {
 
         this.originalId = identifiers.getOriginalId();
         this.pid = identifiers.getPid();
+        this.externalId = identifiers.getExternalId();
     }
 
     @Override
@@ -40,6 +46,7 @@ public class Identifiers {
         return "Identifiers{" +
                 "originalId='" + originalId + '\'' +
                 ", pid='" + pid + '\'' +
+                ", externalId='" + externalId + '\'' +
                 '}';
     }
 
@@ -57,5 +64,25 @@ public class Identifiers {
 
     public void setPid(String pid) {
         this.pid = pid;
+    }
+
+    public String getExternalId() {
+        return externalId;
+    }
+
+    public void setExternalId(String externalId) {
+        this.externalId = externalId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Identifiers that = (Identifiers) o;
+        return Objects.equals(originalId, that.originalId) && Objects.equals(pid, that.pid) && Objects.equals(externalId, that.externalId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(originalId, pid, externalId);
     }
 }

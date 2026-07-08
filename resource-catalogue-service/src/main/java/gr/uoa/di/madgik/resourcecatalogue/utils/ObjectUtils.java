@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.utils;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,18 +25,19 @@ import java.lang.reflect.Method;
 
 public class ObjectUtils {
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private ObjectUtils() {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(ObjectUtils.class);
 
     public static <T> T clone(T object) {
-        ObjectMapper objectMapper = new ObjectMapper();
         T deepCopy = null;
         try {
             String json = objectMapper.writeValueAsString(object);
             deepCopy = (T) objectMapper.readValue(json, object.getClass());
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException(e);
         }
         return deepCopy;

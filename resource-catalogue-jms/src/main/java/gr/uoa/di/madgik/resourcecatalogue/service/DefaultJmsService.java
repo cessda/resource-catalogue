@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,53 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.service;
 
-import gr.uoa.di.madgik.resourcecatalogue.utils.JmsService;
+import gr.uoa.di.madgik.resourcecatalogue.utils.JmsPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.jms.core.JmsTemplate;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
 @Service
-public class DefaultJmsService implements JmsService {
+@Order(1)
+@ConditionalOnProperty(name = "registry.jms.enabled", havingValue = "true")
+public class DefaultJmsService implements JmsPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultJmsService.class);
     private final JmsTemplate jmsTopicTemplate;
     private final JmsTemplate jmsQueueTemplate;
+    private final String jmsPrefix;
 
-    public DefaultJmsService(JmsTemplate jmsTopicTemplate, JmsTemplate jmsQueueTemplate) {
+    public DefaultJmsService(@Autowired(required = false) JmsTemplate jmsTopicTemplate,
+                             @Autowired(required = false) JmsTemplate jmsQueueTemplate,
+                             @Value("${catalogue.jms.prefix}") String jmsPrefix) {
         this.jmsTopicTemplate = jmsTopicTemplate;
         this.jmsQueueTemplate = jmsQueueTemplate;
+        this.jmsPrefix = jmsPrefix;
     }
 
-    @Retryable(value = RuntimeException.class, maxAttempts = 5, backoff = @Backoff(value = 6000))
+    @Override
     public void convertAndSendTopic(String messageDestination, Object message) {
-        logger.info("Sending JMS to topic: {}", messageDestination);
-        jmsTopicTemplate.convertAndSend(messageDestination, message);
+        if (jmsTopicTemplate != null) {
+            String destination = buildDestination(messageDestination);
+            logger.info("Sending JMS to topic: {}", destination);
+            jmsTopicTemplate.convertAndSend(destination, message);
+        }
     }
 
-    @Retryable(value = RuntimeException.class, maxAttempts = 5, backoff = @Backoff(value = 6000))
+    @Override
     public void convertAndSendQueue(String messageDestination, Object message) {
-        logger.info("Sending JMS to topic: {}", messageDestination);
-        jmsQueueTemplate.convertAndSend(messageDestination, message);
+        if (jmsQueueTemplate != null) {
+            String destination = buildDestination(messageDestination);
+            logger.info("Sending JMS to queue: {}", destination);
+            jmsQueueTemplate.convertAndSend(destination, message);
+        }
+    }
+
+    private String buildDestination(String messageDestination) {
+        return jmsPrefix + "." + messageDestination;
     }
 }

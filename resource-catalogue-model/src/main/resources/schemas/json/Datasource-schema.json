@@ -1,138 +1,265 @@
 {
-  "$schema" : "https://json-schema.org/draft/2020-12/schema",
-  "$defs" : {
-    "PersistentIdentitySystem" : {
-      "type" : "object",
-      "properties" : {
-        "persistentIdentityEntityType" : {
-          "type" : "string"
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "alternativePIDs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pid": {
+            "type": "string"
+          },
+          "pidSchema": {
+            "type": "string"
+          }
         },
-        "persistentIdentityEntityTypeSchemes" : {
-          "type" : "array",
-          "items" : {
-            "type" : "string"
+        "additionalProperties": false
+      }
+    },
+    "nodePID": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "publishingDate": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "resourceOwner": {
+      "type": "string"
+    },
+    "serviceProviders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "webpage": {
+      "type": "string"
+    },
+    "logo": {
+      "type": "string"
+    },
+    "scientificDomains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "scientificDomain": {
+            "type": "string"
+          },
+          "scientificSubdomain": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "subcategory": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "accessTypes": {
+      "type": "string"
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "trl": {
+      "type": "string"
+    },
+    "termsOfUse": {
+      "type": "string"
+    },
+    "privacyPolicy": {
+      "type": "string"
+    },
+    "accessPolicy": {
+      "type": "string"
+    },
+    "orderType": {
+      "type": "string"
+    },
+    "order": {
+      "type": "string"
+    },
+    "mainContact": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "PIDs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "mainContactPID": {
+                "type": "string"
+              },
+              "mainContactPIDScheme": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "mainContactPID",
+              "mainContactPIDScheme"
+            ]
+          }
+        },
+        "affiliations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "affiliationName": {
+                "type": "string"
+              },
+              "affiliationIdentifier": {
+                "type": "object",
+                "properties": {
+                  "mainContactID": {
+                    "type": "string"
+                  },
+                  "mainContactType": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "mainContactID",
+                  "mainContactType"
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "affiliationName"
+            ]
           }
         }
       },
-      "additionalProperties" : false
+      "additionalProperties": false,
+      "required": [
+        "firstName",
+        "lastName",
+        "email"
+      ]
     },
-    "ResearchProductLicensing" : {
-      "type" : "object",
-      "properties" : {
-        "researchProductLicenseName" : {
-          "type" : "string"
+    "publicContacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "submissionPolicyURL": {
+      "type": "string"
+    },
+    "preservationPolicyURL": {
+      "type": "string"
+    },
+    "versionControl": {
+      "type": "boolean"
+    },
+    "persistentIdentitySystems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "persistentIdentityProductType": {
+            "type": "string"
+          },
+          "persistentIdentityProductTypeSchemes": {
+            "type": "string"
+          }
         },
-        "researchProductLicenseURL" : {
-          "$ref" : "#/$defs/URL"
+        "additionalProperties": false
+      }
+    },
+    "datasourceClassification": {
+      "type": "string"
+    },
+    "researchProductTypes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "thematic": {
+      "type": "boolean"
+    },
+    "metadataLicense": {
+      "type": "object",
+      "properties": {
+        "metadataLicenseName": {
+          "type": "string"
+        },
+        "metadataLicenseURL": {
+          "type": "string"
         }
       },
-      "additionalProperties" : false
-    },
-    "ResearchProductMetadataLicensing" : {
-      "type" : "object",
-      "properties" : {
-        "researchProductMetadataLicenseName" : {
-          "type" : "string"
-        },
-        "researchProductMetadataLicenseURL" : {
-          "$ref" : "#/$defs/URL"
-        }
-      },
-      "additionalProperties" : false
-    },
-    "URL" : {
-      "type" : "object",
-      "properties" : {
-        "authority" : {
-          "type" : "string"
-        },
-        "file" : {
-          "type" : "string"
-        },
-        "host" : {
-          "type" : "string"
-        },
-        "port" : {
-          "type" : "integer"
-        },
-        "protocol" : {
-          "type" : "string"
-        },
-        "ref" : {
-          "type" : "string"
-        }
-      },
-      "additionalProperties" : false
+      "additionalProperties": false
     }
   },
-  "type" : "object",
-  "properties" : {
-    "catalogueId" : {
-      "type" : "string"
-    },
-    "datasourceClassification" : {
-      "type" : "string"
-    },
-    "harvestable" : {
-      "type" : "boolean"
-    },
-    "id" : {
-      "type" : "string"
-    },
-    "jurisdiction" : {
-      "type" : "string"
-    },
-    "node" : {
-      "type" : "string"
-    },
-    "persistentIdentitySystems" : {
-      "type" : "array",
-      "items" : {
-        "$ref" : "#/$defs/PersistentIdentitySystem"
-      }
-    },
-    "preservationPolicyURL" : {
-      "$ref" : "#/$defs/URL"
-    },
-    "researchEntityTypes" : {
-      "type" : "array",
-      "items" : {
-        "type" : "string"
-      }
-    },
-    "researchProductAccessPolicies" : {
-      "type" : "array",
-      "items" : {
-        "type" : "string"
-      }
-    },
-    "researchProductLicensings" : {
-      "type" : "array",
-      "items" : {
-        "$ref" : "#/$defs/ResearchProductLicensing"
-      }
-    },
-    "researchProductMetadataAccessPolicies" : {
-      "type" : "array",
-      "items" : {
-        "type" : "string"
-      }
-    },
-    "researchProductMetadataLicensing" : {
-      "$ref" : "#/$defs/ResearchProductMetadataLicensing"
-    },
-    "serviceId" : {
-      "type" : "string"
-    },
-    "submissionPolicyURL" : {
-      "$ref" : "#/$defs/URL"
-    },
-    "thematic" : {
-      "type" : "boolean"
-    },
-    "versionControl" : {
-      "type" : "boolean"
-    }
-  },
-  "additionalProperties" : false
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "nodePID",
+    "description",
+    "publishingDate",
+    "type",
+    "resourceOwner",
+    "webpage",
+    "jurisdiction",
+    "trl",
+    "orderType",
+    "mainContact",
+    "publicContacts",
+    "datasourceClassification",
+    "researchProductTypes",
+    "thematic"
+  ]
 }

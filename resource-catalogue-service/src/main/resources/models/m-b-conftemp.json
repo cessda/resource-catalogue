@@ -1,0 +1,326 @@
+{
+  "id": "m-b-conftemp",
+  "name": null,
+  "description": null,
+  "notice": "Fields with (*) are mandatory and must be completed in order to submit this form.",
+  "type": null,
+  "subType": null,
+  "series": null,
+  "resourceType": "configuration_template_instance",
+  "creationDate": null,
+  "createdBy": null,
+  "modificationDate": null,
+  "modifiedBy": null,
+  "sections": [
+    {
+      "id": "configurationTemplateInstance",
+      "name": "configurationTemplateInstance",
+      "description": null,
+      "subType": null,
+      "order": 0,
+      "subSections": [
+        {
+          "id": "template",
+          "name": "template",
+          "description": null,
+          "subType": null,
+          "order": 1,
+          "subSections": null,
+          "fields": [
+            {
+              "id": "id",
+              "name": "id",
+              "parentId": null,
+              "parent": null,
+              "label": {
+                "text": "Id",
+                "cssClasses": null,
+                "style": null,
+                "showLess": false
+              },
+              "accessPath": null,
+              "kind": null,
+              "typeInfo": {
+                "vocabulary": null,
+                "type": "string",
+                "defaultValue": null,
+                "values": null,
+                "properties": {
+                  "minLength": null,
+                  "maxLength": null
+                },
+                "multiplicity": false,
+                "prefill": null
+              },
+              "includedInSnippet": false,
+              "deprecated": false,
+              "form": {
+                "dependsOn": null,
+                "affects": null,
+                "group": null,
+                "description": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "suggestion": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "placeholder": "will be automatically generated",
+                "mandatory": false,
+                "immutable": true,
+                "display": {
+                  "placement": null,
+                  "order": 0,
+                  "visible": false,
+                  "hasBorder": false,
+                  "cssClasses": "uk-disabled",
+                  "style": null
+                }
+              },
+              "display": null,
+              "subFields": []
+            },
+            {
+              "id": "resourceId",
+              "name": "resourceId",
+              "parentId": null,
+              "parent": null,
+              "label": {
+                "text": "Resource Id",
+                "cssClasses": null,
+                "style": null,
+                "showLess": false
+              },
+              "accessPath": null,
+              "kind": null,
+              "typeInfo": {
+                "vocabulary": null,
+                "type": "string",
+                "defaultValue": null,
+                "values": null,
+                "properties": {
+                  "minLength": null,
+                  "maxLength": null
+                },
+                "multiplicity": false,
+                "prefill": null
+              },
+              "includedInSnippet": false,
+              "deprecated": false,
+              "form": {
+                "dependsOn": null,
+                "affects": null,
+                "group": null,
+                "description": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "suggestion": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "placeholder": null,
+                "mandatory": true,
+                "immutable": true,
+                "display": {
+                  "placement": null,
+                  "order": 1,
+                  "visible": false,
+                  "hasBorder": false,
+                  "cssClasses": "uk-disabled",
+                  "style": null
+                }
+              },
+              "display": null,
+              "subFields": []
+            },
+            {
+              "id": "configurationTemplateId",
+              "name": "configurationTemplateId",
+              "parentId": null,
+              "parent": null,
+              "label": {
+                "text": "Configuration Template Id",
+                "cssClasses": null,
+                "style": null,
+                "showLess": false
+              },
+              "accessPath": null,
+              "kind": null,
+              "typeInfo": {
+                "vocabulary": null,
+                "type": "string",
+                "defaultValue": null,
+                "values": null,
+                "properties": {
+                  "minLength": null,
+                  "maxLength": null
+                },
+                "multiplicity": false,
+                "prefill": null
+              },
+              "includedInSnippet": false,
+              "deprecated": false,
+              "form": {
+                "dependsOn": null,
+                "affects": null,
+                "group": null,
+                "description": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "suggestion": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "placeholder": null,
+                "mandatory": true,
+                "immutable": true,
+                "display": {
+                  "placement": null,
+                  "order": 2,
+                  "visible": false,
+                  "hasBorder": false,
+                  "cssClasses": "uk-disabled",
+                  "style": null
+                }
+              },
+              "display": null,
+              "subFields": []
+            },
+            {
+              "id": "nodePID",
+              "name": "nodePID",
+              "parentId": null,
+              "parent": null,
+              "label": {
+                "text": "Node PID",
+                "cssClasses": null,
+                "style": null,
+                "showLess": false
+              },
+              "accessPath": null,
+              "kind": null,
+              "typeInfo": {
+                "vocabulary": null,
+                "type": "string",
+                "defaultValue": null,
+                "values": null,
+                "properties": {},
+                "multiplicity": false,
+                "prefill": null
+              },
+              "includedInSnippet": false,
+              "deprecated": false,
+              "form": {
+                "dependsOn": null,
+                "affects": null,
+                "group": null,
+                "description": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "suggestion": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "placeholder": null,
+                "mandatory": false,
+                "immutable": true,
+                "display": {
+                  "placement": null,
+                  "order": 4,
+                  "visible": false,
+                  "hasBorder": false,
+                  "cssClasses": "uk-disabled",
+                  "style": null
+                }
+              },
+              "display": null,
+              "subFields": []
+            },
+            {
+              "id": "payload",
+              "name": "payload",
+              "parentId": null,
+              "parent": null,
+              "label": {
+                "text": "Payload",
+                "cssClasses": "uk-display-none",
+                "style": null,
+                "showLess": false
+              },
+              "accessPath": null,
+              "kind": null,
+              "typeInfo": {
+                "vocabulary": null,
+                "type": "composite",
+                "defaultValue": null,
+                "values": null,
+                "properties": {},
+                "multiplicity": false,
+                "prefill": null
+              },
+              "includedInSnippet": false,
+              "deprecated": false,
+              "form": {
+                "dependsOn": null,
+                "affects": null,
+                "group": null,
+                "description": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "suggestion": {
+                  "text": null,
+                  "cssClasses": null,
+                  "style": null,
+                  "showLess": false
+                },
+                "placeholder": null,
+                "mandatory": true,
+                "immutable": true,
+                "display": {
+                  "placement": null,
+                  "order": 6,
+                  "visible": true,
+                  "hasBorder": true,
+                  "cssClasses": null,
+                  "style": null
+                }
+              },
+              "display": null,
+              "subFields": []
+            }
+          ]
+        }
+      ],
+      "fields": null
+    }
+  ],
+  "configuration": {
+    "prefillable": false,
+    "importFrom": null
+  },
+  "locked": true,
+  "active": true
+}

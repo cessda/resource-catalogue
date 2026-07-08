@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers.lot1;
 
+import gr.uoa.di.madgik.registry.service.GenericResourceService;
 import gr.uoa.di.madgik.resourcecatalogue.domain.ServiceBundle;
-import gr.uoa.di.madgik.resourcecatalogue.service.ServiceBundleService;
+import gr.uoa.di.madgik.resourcecatalogue.service.ResourceService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,21 +34,17 @@ import java.util.List;
 
 @Profile("crud")
 @RestController
-@RequestMapping(path = "services")
+@RequestMapping(path = "services", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "services")
 public class ServiceCrudController extends ResourceCrudController<ServiceBundle> {
 
-    private static final Logger logger = LoggerFactory.getLogger(ServiceCrudController.class.getName());
-    private final ServiceBundleService<ServiceBundle> serviceBundleService;
-
-    ServiceCrudController(ServiceBundleService<ServiceBundle> serviceBundleService) {
-        super(serviceBundleService);
-        this.serviceBundleService = serviceBundleService;
+    ServiceCrudController(GenericResourceService genericResourceService) {
+        super(genericResourceService);
     }
 
-    @PostMapping(path = "/bulk", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public void addBulk(@RequestBody List<ServiceBundle> bundles, @Parameter(hidden = true) Authentication auth) {
-        serviceBundleService.addBulk(bundles, auth);
+    @Override
+    protected String getResourceTypeName() {
+        return "service";
     }
+
 }

@@ -3,7 +3,7 @@
     <parent>
         <groupId>gr.uoa.di.madgik</groupId>
         <artifactId>resource-catalogue</artifactId>
-        <version>5.4.0</version>
+        <version>6.2.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -39,11 +39,11 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -127,23 +127,37 @@
                 <artifactId>maven-source-plugin</artifactId>
             </plugin>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>jaxb2-maven-plugin</artifactId>
-                <version>${jaxb2-maven-plugin.version}</version>
+                <groupId>org.codehaus.gmavenplus</groupId>
+                <artifactId>gmavenplus-plugin</artifactId>
+                <version>3.0.2</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.groovy</groupId>
+                        <artifactId>groovy</artifactId>
+                        <version>5.0.0</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.groovy</groupId>
+                        <artifactId>groovy-json</artifactId>
+                        <version>5.0.0</version>
+                        <scope>runtime</scope>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
-                        <id>schemagen</id>
+                        <id>generate-dynamic-schemas</id>
+                        <phase>process-classes</phase>
                         <goals>
-                            <goal>schemagen</goal>
+                            <goal>execute</goal>
                         </goals>
+                        <configuration>
+                            <scripts>
+                                <script>${project.basedir}/../scripts/generate-schemas.groovy</script>
+                            </scripts>
+                        </configuration>
                     </execution>
                 </executions>
-                <configuration>
-                    <sources>
-                        <source>${basedir}/src/main/java/gr/uoa/di/madgik/resourcecatalogue/domain</source>
-                    </sources>
-                    <outputDirectory>${basedir}/src/main/resources/schemas</outputDirectory>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>cz.habarta.typescript-generator</groupId>

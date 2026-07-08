@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,14 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.manager;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
+import co.elastic.clients.elasticsearch._types.aggregations.DateHistogramBucket;
+import co.elastic.clients.elasticsearch._types.aggregations.LongTermsBucket;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.json.JsonData;
+import tools.jackson.databind.ObjectMapper;
 import gr.uoa.di.madgik.registry.domain.FacetFilter;
 import gr.uoa.di.madgik.registry.domain.Paging;
 import gr.uoa.di.madgik.registry.domain.Resource;
@@ -23,39 +31,43 @@ import gr.uoa.di.madgik.registry.service.ParserService;
 import gr.uoa.di.madgik.registry.service.SearchService;
 import gr.uoa.di.madgik.registry.service.ServiceException;
 import gr.uoa.di.madgik.resourcecatalogue.domain.Event;
-import gr.uoa.di.madgik.resourcecatalogue.domain.ProviderBundle;
-import gr.uoa.di.madgik.resourcecatalogue.domain.Service;
+import gr.uoa.di.madgik.resourcecatalogue.domain.OrganisationBundle;
 import gr.uoa.di.madgik.resourcecatalogue.domain.ServiceBundle;
 import gr.uoa.di.madgik.resourcecatalogue.dto.MapValues;
 import gr.uoa.di.madgik.resourcecatalogue.dto.PlaceCount;
 import gr.uoa.di.madgik.resourcecatalogue.dto.Value;
-import gr.uoa.di.madgik.resourcecatalogue.service.*;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
-import org.elasticsearch.search.aggregations.bucket.histogram.Histogram;
-import org.elasticsearch.search.aggregations.bucket.histogram.ParsedDateHistogram;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import gr.uoa.di.madgik.resourcecatalogue.service.Analytics;
+import gr.uoa.di.madgik.resourcecatalogue.service.OrganisationService;
+import gr.uoa.di.madgik.resourcecatalogue.service.ServiceService;
+import gr.uoa.di.madgik.resourcecatalogue.service.StatisticsService;
+import gr.uoa.di.madgik.resourcecatalogue.service.VocabularyService;
 import org.joda.time.DateTime;
+import org.postgresql.jdbc.PgArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.io.IOException;
-import java.util.*;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Component
@@ -65,121 +77,133 @@ import java.util.stream.Collectors;
 public class ElasticStatisticsManager implements StatisticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(ElasticStatisticsManager.class);
-    private final RestHighLevelClient client;
+
+    private final ElasticsearchClient client;
     private final Analytics analyticsService;
-    private final ProviderService providerService;
+    private final OrganisationService organisationService;
     private final SearchService searchService;
     private final ParserService parserService;
-    private final ServiceBundleService<ServiceBundle> serviceBundleManager;
+    private final ServiceService serviceService;
     private final VocabularyService vocabularyService;
+    private final DataSource dataSource;
+    private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Value("${elastic.index.max_result_window:10000}")
     private int maxQuantity;
 
-    ElasticStatisticsManager(RestHighLevelClient client, Analytics analyticsService,
-                             ProviderService providerService,
+    ElasticStatisticsManager(ElasticsearchClient client, Analytics analyticsService,
+                             OrganisationService organisationService,
                              SearchService searchService, ParserService parserService,
-                             ServiceBundleService<ServiceBundle> serviceBundleManager,
-                             VocabularyService vocabularyService) {
+                             ServiceService serviceService,
+                             VocabularyService vocabularyService,
+                             DataSource dataSource,
+                             ObjectMapper objectMapper) {
         this.client = client;
         this.analyticsService = analyticsService;
-        this.providerService = providerService;
+        this.organisationService = organisationService;
         this.searchService = searchService;
         this.parserService = parserService;
-        this.serviceBundleManager = serviceBundleManager;
+        this.serviceService = serviceService;
         this.vocabularyService = vocabularyService;
+        this.dataSource = dataSource;
+        this.objectMapper = objectMapper;
     }
 
-    private ParsedDateHistogram histogram(String id, String eventType, Interval by) {
-
+    private List<DateHistogramBucket> histogramBuckets(String id, String eventType, Interval by) {
         String dateFormat;
         String aggregationName;
-        DateHistogramInterval dateHistogramInterval;
+        CalendarInterval calendarInterval;
 
         switch (StatisticsService.Interval.fromString(by.getKey())) {
             case DAY:
                 dateFormat = "yyyy-MM-dd";
                 aggregationName = "day";
-                dateHistogramInterval = DateHistogramInterval.DAY;
+                calendarInterval = CalendarInterval.Day;
                 break;
             case WEEK:
                 dateFormat = "yyyy-MM-dd";
                 aggregationName = "week";
-                dateHistogramInterval = DateHistogramInterval.WEEK;
+                calendarInterval = CalendarInterval.Week;
                 break;
             case YEAR:
                 dateFormat = "yyyy";
                 aggregationName = "year";
-                dateHistogramInterval = DateHistogramInterval.YEAR;
+                calendarInterval = CalendarInterval.Year;
                 break;
             default:
                 dateFormat = "yyyy-MM";
                 aggregationName = "month";
-                dateHistogramInterval = DateHistogramInterval.MONTH;
+                calendarInterval = CalendarInterval.Month;
         }
 
-        DateHistogramAggregationBuilder dateHistogramAggregationBuilder = AggregationBuilders
-                .dateHistogram(aggregationName)
-                .field("instant")
-                .calendarInterval(dateHistogramInterval)
-                .format(dateFormat)
-                .subAggregation(AggregationBuilders.terms("value").field("value"));
-
-        SearchRequest search = new SearchRequest("event");
-        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-        search.searchType(SearchType.DEFAULT);
-        searchSourceBuilder.query(getEventQueryBuilder(id, eventType));
-        searchSourceBuilder.aggregation(dateHistogramAggregationBuilder);
-        search.source(searchSourceBuilder);
-
-        SearchResponse response = null;
         try {
-            response = client.search(search, RequestOptions.DEFAULT);
-        } catch (IOException e) {
-            throw new ServiceException(e.getMessage());
-        }
+            Aggregate aggregate = client.search(s -> s
+                            .index("event")
+                            .size(0)
+                            .query(getEventQuery(id, eventType))
+                            .aggregations(aggregationName, a -> a
+                                    .dateHistogram(dh -> dh
+                                            .field("instant")
+                                            .calendarInterval(calendarInterval)
+                                            .format(dateFormat))
+                                    .aggregations("value", sub -> sub.terms(t -> t.field("value")))),
+                    Void.class)
+                    .aggregations()
+                    .get(aggregationName);
 
-        return response
-                .getAggregations()
-                .get(aggregationName);
+            if (aggregate == null || !aggregate.isDateHistogram()) {
+                return List.of();
+            }
+            return aggregate.dateHistogram().buckets().array();
+        } catch (IOException e) {
+            throw new ServiceException(e.getMessage(), e);
+        }
     }
 
-    private QueryBuilder getEventQueryBuilder(String serviceId, String eventType) {
-        Date date = new Date();
-        Calendar c = Calendar.getInstance();
+    private Query getEventQuery(String serviceId, String eventType) {
+        Instant date = Instant.now();
+        java.util.Calendar c = java.util.Calendar.getInstance();
         c.setTimeInMillis(0);
-        return QueryBuilders.boolQuery()
-                .filter(QueryBuilders.termsQuery("service", serviceId))
-                .filter(QueryBuilders.rangeQuery("instant").from(c.getTime().getTime()).to(date.getTime()))
-                .filter(QueryBuilders.termsQuery("type", eventType));
+
+        return Query.of(q -> q.bool(b -> b.filter(
+                Query.of(f -> f.term(t -> t.field("service").value(serviceId))),
+                Query.of(f -> f.range(r -> r.untyped(n -> n
+                        .field("instant")
+                        .gte(JsonData.of(c.getTime().getTime()))
+                        .lte(JsonData.of(date.toEpochMilli()))
+                ))),
+                Query.of(f -> f.term(t -> t.field("type").value(eventType)))
+        )));
     }
 
     @Override
     public Map<String, Integer> addToProject(String id, Interval by) {
-        final long[] totalDocCounts = new long[2]; //0 - not added, 1 - added
-        List<? extends Histogram.Bucket> buckets = histogram(id, Event.UserActionType.ADD_TO_PROJECT.getKey(), by).getBuckets();
-        return new TreeMap<>(buckets.stream().collect(
-                Collectors.toMap(
-                        MultiBucketsAggregation.Bucket::getKeyAsString,
-                        bucket -> {
-                            Terms subTerm = bucket.getAggregations().get("value");
-                            if (subTerm.getBuckets() != null) {
-                                totalDocCounts[0] += subTerm.getBuckets().stream().mapToLong(
-                                        subBucket -> subBucket.getKeyAsNumber().intValue() == 0 ? subBucket.getDocCount() : 0
-                                ).sum();
-                                totalDocCounts[1] += subTerm.getBuckets().stream().mapToLong(
-                                        subBucket -> subBucket.getKeyAsNumber().intValue() == 1 ? subBucket.getDocCount() : 0
-                                ).sum();
-                            }
-                            return (int) Math.max(totalDocCounts[1] - totalDocCounts[0], 0);
-                        }
-                )
-        ));
+        final long[] totalDocCounts = new long[2];
+        List<DateHistogramBucket> buckets = histogramBuckets(id, Event.UserActionType.ADD_TO_PROJECT.getKey(), by);
+        Map<String, Integer> results = new LinkedHashMap<>();
+        for (DateHistogramBucket bucket : buckets) {
+            Aggregate valueAggregate = bucket.aggregations().get("value");
+            if (valueAggregate != null && valueAggregate.isLterms()) {
+                for (LongTermsBucket subBucket : valueAggregate.lterms().buckets().array()) {
+                    long key = subBucket.key();
+                    long docCount = subBucket.docCount();
+                    if (key == 0) {
+                        totalDocCounts[0] += docCount;
+                    } else if (key == 1) {
+                        totalDocCounts[1] += docCount;
+                    }
+                }
+            }
+            results.put(bucket.keyAsString(), (int) Math.max(totalDocCounts[1] - totalDocCounts[0], 0));
+        }
+        return new TreeMap<>(results);
     }
 
     @Override
     public Map<String, Integer> providerAddToProject(String id, Interval by) {
-        Map<String, Integer> providerAddToProject = serviceBundleManager.getResources(id, null)
+        FacetFilter filter = new FacetFilter();
+        filter.addFilter("resource_owner", id);
+        Map<String, Integer> providerAddToProject = serviceService.getAll(filter).getResults()
                 .stream()
                 .flatMap(s -> addToProject(s.getId(), by).entrySet().stream())
                 .collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.summingInt(Map.Entry::getValue)));
@@ -189,41 +213,29 @@ public class ElasticStatisticsManager implements StatisticsService {
 
     @Override
     public Map<String, Integer> visits(String id, Interval by) {
-        List<? extends Histogram.Bucket> buckets = histogram(id, Event.UserActionType.VISIT.getKey(), by).getBuckets();
-        final long[] totalDocCounts = new long[buckets.size()];
-        final int[] j = {-1}; // bucket counter
-        return new TreeMap<>(buckets.stream().collect(
-                Collectors.toMap(
-                        MultiBucketsAggregation.Bucket::getKeyAsString,
-                        bucket -> {
-                            j[0]++;
-                            Terms subTerm = bucket.getAggregations().get("value");
-                            if (subTerm.getBuckets() != null) {
-                                for (int i = 0; i < subTerm.getBuckets().size(); i++) {
-                                    Double key = (Double) subTerm.getBuckets().get(i).getKey();
-                                    Integer keyToInt = key.intValue();
-                                    int totalVistisOnBucket = keyToInt * Integer.parseInt(String.valueOf(subTerm.getBuckets().get(i).getDocCount()));
-                                    totalDocCounts[j[0]] += totalVistisOnBucket;
-                                }
-                            }
-                            return (int) Math.max(totalDocCounts[j[0]], 0);
-                        }
-                )
-        ));
-
-        // alternatively - fetching data from matomo
-//        try {
-//            return analyticsService.getVisitsForLabel("/service/" + id, by);
-//        } catch (Exception e) {
-//            logger.error("Could not find Matomo analytics", e);
-//        }
-//        return new HashMap<>();
+        List<DateHistogramBucket> buckets = histogramBuckets(id, Event.UserActionType.VISIT.getKey(), by);
+        Map<String, Integer> results = new LinkedHashMap<>();
+        for (DateHistogramBucket bucket : buckets) {
+            long totalDocCount = 0;
+            Aggregate valueAggregate = bucket.aggregations().get("value");
+            if (valueAggregate != null && valueAggregate.isLterms()) {
+                for (LongTermsBucket subBucket : valueAggregate.lterms().buckets().array()) {
+                    long key = subBucket.key();
+                    long docCount = subBucket.docCount();
+                    totalDocCount += (long) key * docCount;
+                }
+            }
+            results.put(bucket.keyAsString(), (int) Math.max(totalDocCount, 0));
+        }
+        return new TreeMap<>(results);
     }
 
     @Override
     public Map<String, Integer> providerVisits(String id, Interval by) {
         Map<String, Integer> results = new HashMap<>();
-        for (Service service : serviceBundleManager.getResources(id, null)) {
+        FacetFilter filter = new FacetFilter();
+        filter.addFilter("resource_owner", id);
+        for (ServiceBundle service : serviceService.getAll(filter).getResults()) {
             Set<Map.Entry<String, Integer>> entrySet = visits(service.getId(), by).entrySet();
             for (Map.Entry<String, Integer> entry : entrySet) {
                 if (!results.containsKey(entry.getKey())) {
@@ -238,19 +250,21 @@ public class ElasticStatisticsManager implements StatisticsService {
 
     @Override
     public Map<String, Float> providerVisitation(String id, Interval by) {
-        Map<String, Integer> counts = serviceBundleManager.getResources(id, null).stream().collect(Collectors.toMap(
-                Service::getName,
+        FacetFilter filter = new FacetFilter();
+        filter.addFilter("resource_owner", id);
+        Map<String, Integer> counts = serviceService.getAll(filter).getResults().stream().collect(Collectors.toMap(s ->
+                        (String) s.getService().get("name"),
                 s -> visits(s.getId(), by).values().stream().mapToInt(Integer::intValue).sum()
         ));
         int grandTotal = counts.values().stream().mapToInt(Integer::intValue).sum();
         return counts.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, v -> ((float) v.getValue()) / grandTotal));
     }
 
-    public Map<DateTime, Map<String, Long>> events(Event.UserActionType type, Date from, Date to, Interval by) {
+    public Map<DateTime, Map<String, Long>> events(Event.UserActionType type, Instant from, Instant to, Interval by) {
         Map<DateTime, Map<String, Long>> results = new LinkedHashMap<>();
         Paging<Resource> resources = searchService.cqlQuery(
                 String.format("type=\"%s\" AND creation_date > %s AND creation_date < %s",
-                        type, from.toInstant().toEpochMilli(), to.toInstant().toEpochMilli()), "event",
+                        type, from.toEpochMilli(), to.toEpochMilli()), "event",
                 maxQuantity, 0, "creation_date", "ASC");
         List<Event> events = resources
                 .getResults()
@@ -280,7 +294,6 @@ public class ElasticStatisticsManager implements StatisticsService {
                     })
                     .filter(Objects::nonNull)
                     .toList();
-//            weekEvents.sort(Comparator.comparing(Event::getService));
             eventsByDate.put(start, weekEvents);
             start = endDate;
         }
@@ -298,9 +311,7 @@ public class ElasticStatisticsManager implements StatisticsService {
             results.put(weekEntry.getKey(), weekResults);
         }
 
-
         return results;
-
     }
 
     private DateTime addInterval(DateTime date, Interval by) {
@@ -353,11 +364,11 @@ public class ElasticStatisticsManager implements StatisticsService {
 
         Map<String, Set<String>> providerCountries = providerCountriesMap();
 
-        List<ServiceBundle> allServices = serviceBundleManager.getAll(ff, null).getResults();
+        List<ServiceBundle> allServices = serviceService.getAll(ff, null).getResults();
         for (ServiceBundle serviceBundle : allServices) {
-            Value value = new Value(serviceBundle.getId(), serviceBundle.getService().getName());
+            Value value = new Value(serviceBundle.getId(), (String) serviceBundle.getService().get("name"));
 
-            Set<String> countries = new HashSet<>(providerCountries.get(serviceBundle.getService().getResourceOrganisation()));
+            Set<String> countries = new HashSet<>(providerCountries.get((String) serviceBundle.getService().get("resourceOwner")));
             for (String country : countries) {
                 if (mapValues.get(country) == null) {
                     continue;
@@ -372,8 +383,51 @@ public class ElasticStatisticsManager implements StatisticsService {
     }
 
     @Override
-    public List<MapValues> mapServicesToVocabulary(String providerId, Vocabulary vocabulary) {
-        throw new UnsupportedOperationException("Not implemented");
+    public List<MapValues> mapServicesToVocabulary(String providerId, String vocType) {
+        Map<String, Set<Value>> vocabularyServices = new HashMap<>();
+
+        NamedParameterJdbcTemplate namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+        MapSqlParameterSource in = new MapSqlParameterSource();
+        in.addValue("resourceOwner", providerId);
+
+        String query = "select resource_internal_id,name," + vocType +
+                " from service_view where active=true and published=false";
+        if (providerId != null) {
+            query += " and resource_owner='" + providerId + "'";
+        }
+
+        List<Map<String, Object>> records = namedParameterJdbcTemplate.queryForList(query, in);
+
+        try {
+            for (Map<String, Object> entry : records) {
+                Value value = new Value();
+                value.setId(entry.get("resource_internal_id").toString());
+                value.setName(entry.get("name").toString());
+
+                String[] vocabularyValues;
+                if (!vocType.equals("order_type")) {
+                    PgArray pgArray = ((PgArray) entry.get(vocType));
+                    vocabularyValues = ((String[]) pgArray.getArray());
+                } else {
+                    vocabularyValues = new String[]{((String) entry.get(vocType))};
+                }
+
+                for (String voc : vocabularyValues) {
+                    Set<Value> values;
+                    if (vocabularyServices.containsKey(voc)) {
+                        values = vocabularyServices.get(voc);
+                    } else {
+                        values = new HashSet<>();
+                    }
+                    values.add(value);
+                    vocabularyServices.put(voc, values);
+                }
+            }
+        } catch (SQLException throwables) {
+            logger.error(throwables.getMessage(), throwables);
+        }
+
+        return toListMapValues(vocabularyServices);
     }
 
     private Map<String, Set<String>> providerCountriesMap() {
@@ -384,9 +438,9 @@ public class ElasticStatisticsManager implements StatisticsService {
         FacetFilter ff = new FacetFilter();
         ff.setQuantity(maxQuantity);
 
-        for (ProviderBundle providerBundle : providerService.getAll(ff, null).getResults()) {
+        for (OrganisationBundle organisationBundle : organisationService.getAll(ff, null).getResults()) {
             Set<String> countries = new HashSet<>();
-            String country = providerBundle.getProvider().getLocation().getCountry();
+            String country = (String) organisationBundle.getOrganisation().get("country");
             if (country.equalsIgnoreCase("WW")) {
                 countries.addAll(Arrays.asList(world));
             } else if (country.equalsIgnoreCase("EU")) {
@@ -394,7 +448,7 @@ public class ElasticStatisticsManager implements StatisticsService {
             } else {
                 countries.add(country);
             }
-            providerCountries.put(providerBundle.getId(), countries);
+            providerCountries.put(organisationBundle.getId(), countries);
         }
         return providerCountries;
     }
@@ -411,4 +465,5 @@ public class ElasticStatisticsManager implements StatisticsService {
         }
         return mapValuesList;
     }
+
 }

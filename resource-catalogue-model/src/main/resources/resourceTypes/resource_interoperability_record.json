@@ -6,70 +6,92 @@
       "name": "resource_internal_id",
       "path": "$.resourceInteroperabilityRecord.id",
       "primaryKey": true,
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 0.0
+    },
+    {
+      "label": "Catalogue ID",
+      "multivalued": false,
+      "name": "catalogue_id",
+      "path": "$.catalogueId",
+      "type": "java.lang.String",
+      "relatedResourceType": "catalogue",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": "Resource ID",
       "multivalued": false,
       "name": "resource_id",
       "path": "$.resourceInteroperabilityRecord.resourceId",
-      "type": "java.lang.String"
-    },
-    {
-      "label": "Catalogue ID",
-      "multivalued": false,
-      "name": "catalogue_id",
-      "path": "$.resourceInteroperabilityRecord.catalogueId",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "relatedResourceType": "eoscServices",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": "Node",
       "multivalued": false,
       "name": "node",
-      "path": "$.resourceInteroperabilityRecord.node",
-      "type": "java.lang.String"
+      "path": "$.resourceInteroperabilityRecord.nodePID",
+      "type": "java.lang.String",
+      "relatedResourceType": "vocabulary",
+      "relatedResourceTypeField": "name",
+      "embeddingWeight": 1.0
     },
     {
       "label": "Interoperability Record ID",
       "multivalued": false,
       "name": "interoperability_record_ids",
       "path": "$.resourceInteroperabilityRecord.interoperabilityRecordIds[*]",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "relatedResourceType": "interoperability_record",
+      "relatedResourceTypeField": "name",
+      "searchCapabilities": ["KEYWORD", "TEXT"],
+      "embeddingWeight": 1.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "registeredBy",
       "path": "$.metadata.registeredBy",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "modifiedBy",
       "path": "$.metadata.modifiedBy",
-      "type": "java.lang.String"
+      "type": "java.lang.String",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "registeredAt",
       "path": "$.metadata.registeredAt",
-      "type": "java.util.Date"
+      "type": "java.time.Instant",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "modifiedAt",
       "path": "$.metadata.modifiedAt",
-      "type": "java.util.Date"
+      "type": "java.time.Instant",
+      "embeddingWeight": 0.0
     },
     {
       "label": null,
       "multivalued": false,
       "name": "published",
       "path": "$.metadata.published",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "defaultValue": "false",
@@ -77,7 +99,8 @@
       "multivalued": false,
       "name": "active",
       "path": "$.active",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "defaultValue": "false",
@@ -85,7 +108,8 @@
       "multivalued": false,
       "name": "suspended",
       "path": "$.suspended",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     },
     {
       "defaultValue": "false",
@@ -93,7 +117,8 @@
       "multivalued": false,
       "name": "draft",
       "path": "$.draft",
-      "type": "java.lang.Boolean"
+      "type": "java.lang.Boolean",
+      "embeddingWeight": 0.0
     }
   ],
   "indexMapperClass": "gr.uoa.di.madgik.registry.index.DefaultIndexMapper",
@@ -105,5 +130,5 @@
   "properties": {
     "class": "gr.uoa.di.madgik.resourcecatalogue.domain.ResourceInteroperabilityRecordBundle"
   },
-  "schema": "{\n\t\"$schema\": \"https://json-schema.org/draft/2019-09/schema\"\n}"
+  "schema": "{\n\t\"$schema\": \"http://json-schema.org/draft-07/schema#\",\n\t\"type\": \"object\"\n}"
 }

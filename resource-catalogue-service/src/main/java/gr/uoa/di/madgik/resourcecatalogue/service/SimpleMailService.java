@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
-import javax.mail.*;
-import javax.mail.internet.AddressException;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
+import jakarta.mail.*;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import java.util.*;
 
 @Component
@@ -112,7 +112,7 @@ public class SimpleMailService implements MailService {
     void sendMessage(Message message, List<String> to, List<String> cc, List<String> bcc) throws MessagingException {
         boolean sent = false;
         int attempts = 0;
-        while (!sent && attempts < 20) {
+        while (!sent && attempts < 5) {
             try {
                 attempts++;
                 Transport.send(message);

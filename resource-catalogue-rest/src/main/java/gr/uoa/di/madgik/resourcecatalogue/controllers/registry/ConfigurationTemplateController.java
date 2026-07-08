@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,25 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.controllers.registry;
 
+import gr.uoa.di.madgik.catalogue.domain.Model;
+import gr.uoa.di.madgik.catalogue.exception.ValidationException;
+import gr.uoa.di.madgik.catalogue.service.ModelService;
 import gr.uoa.di.madgik.registry.annotation.BrowseParameters;
 import gr.uoa.di.madgik.registry.domain.FacetFilter;
 import gr.uoa.di.madgik.registry.domain.Paging;
-import gr.uoa.di.madgik.resourcecatalogue.domain.ConfigurationTemplate;
+import gr.uoa.di.madgik.registry.exception.ResourceNotFoundException;
+import gr.uoa.di.madgik.resourcecatalogue.annotations.BrowseCatalogue;
+import gr.uoa.di.madgik.resourcecatalogue.config.NodeProperties;
 import gr.uoa.di.madgik.resourcecatalogue.domain.ConfigurationTemplateBundle;
-import gr.uoa.di.madgik.resourcecatalogue.domain.User;
+import gr.uoa.di.madgik.resourcecatalogue.domain.Vocabulary;
+import gr.uoa.di.madgik.resourcecatalogue.service.ConfigurationTemplateInstanceService;
 import gr.uoa.di.madgik.resourcecatalogue.service.ConfigurationTemplateService;
-import gr.uoa.di.madgik.catalogue.service.GenericResourceService;
-import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,115 +43,233 @@ import org.springframework.security.core.Authentication;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-
+@Profile("beyond")
 @RestController
-@RequestMapping("configurationTemplate")
-@Tag(name = "configuration template", description = "Operations about Configuration Templates")
+@RequestMapping(path = "configurationTemplate", produces = {MediaType.APPLICATION_JSON_VALUE})
+@Tag(name = "configuration template")
 public class ConfigurationTemplateController {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationTemplateController.class);
 
     private final ConfigurationTemplateService service;
-    private final GenericResourceService genericResourceService;
-    private final ConfigurationTemplateService configurationTemplateService;
+    private final ConfigurationTemplateInstanceService instanceService;
+    private final ModelService modelService;
+    private final NodeProperties nodeProperties;
 
     public ConfigurationTemplateController(ConfigurationTemplateService service,
-                                           GenericResourceService genericResourceService,
-                                           ConfigurationTemplateService configurationTemplateService) {
+                                           ConfigurationTemplateInstanceService instanceService,
+                                           ModelService modelService,
+                                           NodeProperties nodeProperties) {
         this.service = service;
-        this.genericResourceService = genericResourceService;
-        this.configurationTemplateService = configurationTemplateService;
+        this.instanceService = instanceService;
+        this.modelService = modelService;
+        this.nodeProperties = nodeProperties;
     }
 
-    @Operation(summary = "Create a new Configuration Template.")
-    @PostMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') " +
-            "or @securityService.isResourceAdmin(#auth, #configurationTemplate.interoperabilityRecordId)")
-    public ResponseEntity<ConfigurationTemplate> add(@RequestBody ConfigurationTemplate configurationTemplate,
-                                                     @Parameter(hidden = true) Authentication auth) {
-        ConfigurationTemplateBundle bundle = service.add(new ConfigurationTemplateBundle(configurationTemplate), auth);
-        return new ResponseEntity<>(bundle.getConfigurationTemplate(), HttpStatus.CREATED);
+    @Operation(summary = "Returns the Configuration Template with the given id.")
+    @GetMapping(path = "{prefix}/{suffix}")
+    public ResponseEntity<?> get(@PathVariable String prefix,
+                                 @PathVariable String suffix) {
+        String id = prefix + "/" + suffix;
+        ConfigurationTemplateBundle bundle = service.get(id);
+        return new ResponseEntity<>(bundle.getConfigurationTemplate(), HttpStatus.OK);
+    }
+
+    @Operation(summary = "Returns the Model for the given Configuration Template id.")
+    @GetMapping(path = "{prefix}/{suffix}/model")
+    public ResponseEntity<Model> getModelByConfigurationTemplateId(@PathVariable String prefix,
+                                                                   @PathVariable String suffix) {
+        String id = prefix + "/" + suffix;
+        ConfigurationTemplateBundle bundle = service.get(id);
+        String modelId = (String) bundle.getConfigurationTemplate().get("modelId");
+        return ResponseEntity.ok(modelService.get(modelId));
+    }
+
+    @GetMapping(path = "bundle/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<ConfigurationTemplateBundle> getBundle(@PathVariable String prefix,
+                                                                 @PathVariable String suffix) {
+        String id = prefix + "/" + suffix;
+        ConfigurationTemplateBundle bundle = service.get(id);
+        return new ResponseEntity<>(bundle, HttpStatus.OK);
+    }
+
+    @Operation(summary = "Get a list of Configuration Templates based on a list of filters.")
+    @BrowseParameters
+    @BrowseCatalogue
+    @GetMapping(path = "all")
+    public ResponseEntity<Paging<?>> getAll(@Parameter(hidden = true)
+                                            @RequestParam MultiValueMap<String, Object> params,
+                                            @Parameter(hidden = true) Authentication auth) {
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<ConfigurationTemplateBundle> paging = service.getAll(ff, auth);
+        return ResponseEntity.ok(paging.map(ConfigurationTemplateBundle::getConfigurationTemplate));
+    }
+
+    @BrowseParameters
+    @BrowseCatalogue
+    @GetMapping(path = "bundle/all")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<Paging<ConfigurationTemplateBundle>> getAllBundles(@Parameter(hidden = true)
+                                                                             @RequestParam MultiValueMap<String, Object> params) {
+        FacetFilter ff = FacetFilter.from(params);
+        ff.addFilter("published", false);
+        ff.addFilter("draft", false);
+        Paging<ConfigurationTemplateBundle> paging = service.getAll(ff);
+        return ResponseEntity.ok(paging);
+    }
+
+    @Operation(summary = "Adds a new Configuration Template.")
+    @PostMapping()
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<?> add(@RequestBody LinkedHashMap<String, Object> ct,
+                                 @Parameter(hidden = true) Authentication auth) {
+        ConfigurationTemplateBundle bundle = new ConfigurationTemplateBundle();
+        bundle.setConfigurationTemplate(ct);
+        ConfigurationTemplateBundle ret = service.add(bundle, auth);
+        logger.info("Added Configuration Template with id '{}'", bundle.getId());
+        return new ResponseEntity<>(ret.getConfigurationTemplate(), HttpStatus.CREATED);
+    }
+
+    @Operation(summary = "Creates a Model and a Configuration Template in a single request. "
+            + "The model must be of resourceType 'configuration_template_instance'.")
+    @PostMapping(path = "/{irPrefix}/{irSuffix}/withModel")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isInteroperabilityRecordAdmin(#auth, #irPrefix+'/'+#irSuffix)")
+    public ResponseEntity<?> addWithModel(@RequestBody Model model,
+                                          @PathVariable String irPrefix,
+                                          @PathVariable String irSuffix,
+                                          @Parameter(hidden = true) Authentication auth) {
+        if (!"configuration_template_instance".equals(model.getResourceType())) {
+            throw new ValidationException("Model resourceType must be 'configuration_template_instance'");
+        }
+        String interoperabilityRecordId = irPrefix + "/" + irSuffix;
+        Model savedModel = modelService.add(model);
+        try {
+            LinkedHashMap<String, Object> ct = buildConfigurationTemplate(interoperabilityRecordId, savedModel);
+            ConfigurationTemplateBundle bundle = new ConfigurationTemplateBundle();
+            bundle.setConfigurationTemplate(ct);
+            ConfigurationTemplateBundle ret = service.add(bundle, auth);
+            logger.info("Added Configuration Template '{}' with Model '{}'", ret.getId(), savedModel.getId());
+            return new ResponseEntity<>(ret.getConfigurationTemplate(), HttpStatus.CREATED);
+        } catch (Exception e) {
+            modelService.delete(savedModel.getId());
+            throw e;
+        }
+    }
+
+    @PostMapping(path = "/addBulk")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public void addBulk(@RequestBody List<ConfigurationTemplateBundle> ctList,
+                        @Parameter(hidden = true) Authentication auth) {
+        service.addBulk(ctList, auth);
     }
 
     @Operation(summary = "Updates the Configuration Template with the given id.")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT') " +
-            "or @securityService.isResourceAdmin(#auth,#configurationTemplate.interoperabilityRecordId)")
-    @PutMapping(produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<ConfigurationTemplate> update(@RequestBody ConfigurationTemplate configurationTemplate,
-                                                        @Parameter(hidden = true) Authentication auth) {
-        ConfigurationTemplateBundle ret = service.update(new ConfigurationTemplateBundle(configurationTemplate), auth);
-        return new ResponseEntity<>(ret.getConfigurationTemplate(), HttpStatus.OK);
+    @PutMapping()
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isInteroperabilityRecordAdmin(#auth, #ct['interoperabilityRecordId'])")
+    public ResponseEntity<?> update(@RequestBody LinkedHashMap<String, Object> ct,
+                                    @RequestParam(required = false) String comment,
+                                    @Parameter(hidden = true) Authentication auth) {
+        String id = ct.get("id").toString();
+        ConfigurationTemplateBundle bundle = service.get(id);
+        bundle.setConfigurationTemplate(ct);
+        bundle = service.update(bundle, comment, auth);
+        logger.info("Updated the Configuration Template with id '{}'", ct.get("id"));
+        return new ResponseEntity<>(bundle.getConfigurationTemplate(), HttpStatus.OK);
     }
 
-    @DeleteMapping(path = "deleteByInteroperabilityRecordId/{prefix}/{suffix}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_EPOT')")
-    public ResponseEntity<ConfigurationTemplate> delete(@Parameter(description = "The left part of the ID before the '/'") @PathVariable("prefix") String prefix,
-                                                        @Parameter(description = "The right part of the ID after the '/'") @PathVariable("suffix") String suffix,
-                                                        @RequestParam(defaultValue = "${catalogue.id}", name = "catalogue_id") String catalogueId,
-                                                        @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
-        String id = prefix + "/" + suffix;
-        ConfigurationTemplateBundle configurationTemplateBundle = configurationTemplateService.get(id, catalogueId, false);
-        if (configurationTemplateBundle == null) {
-            return new ResponseEntity<>(HttpStatus.GONE);
+    @Operation(summary = "Updates a Model and its corresponding Configuration Template in a single request, "
+            + "propagating name and description from the model to the Configuration Template.")
+    @PutMapping(path = "/{irPrefix}/{irSuffix}/withModel")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isInteroperabilityRecordAdmin(#auth, #irPrefix+'/'+#irSuffix)")
+    public ResponseEntity<?> updateWithModel(@RequestBody Model model,
+                                             @PathVariable String irPrefix,
+                                             @PathVariable String irSuffix,
+                                             @RequestParam(required = false) String comment,
+                                             @Parameter(hidden = true) Authentication auth) {
+        Model updatedModel = modelService.update(model.getId(), model);
+        FacetFilter ff = new FacetFilter();
+        ff.addFilter("model_id", model.getId());
+        Paging<ConfigurationTemplateBundle> paging = service.getAll(ff);
+        if (paging.getResults().isEmpty()) {
+            throw new ResourceNotFoundException("No Configuration Template found for model id: " + updatedModel.getId());
         }
-        configurationTemplateService.delete(configurationTemplateBundle);
-        return new ResponseEntity<>(configurationTemplateBundle.getConfigurationTemplate(), HttpStatus.OK);
+        ConfigurationTemplateBundle bundle = paging.getResults().getFirst();
+        if (!instanceService.getByConfigurationTemplateId(bundle.getId()).isEmpty()) {
+            throw new ValidationException("Cannot update: Configuration Template '" + bundle.getId()
+                    + "' has registered instances. Remove them before updating the model.");
+        }
+        bundle.getConfigurationTemplate().put("name", updatedModel.getName());
+        bundle.getConfigurationTemplate().put("description", updatedModel.getDescription());
+        bundle = service.update(bundle, comment, auth);
+        logger.info("Updated Configuration Template '{}' with Model '{}'", bundle.getId(), updatedModel.getId());
+        return new ResponseEntity<>(bundle.getConfigurationTemplate(), HttpStatus.OK);
     }
 
-    @Operation(summary = "Returns all Configuration Templates.")
-    @BrowseParameters
-    @GetMapping(path = "all", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<ConfigurationTemplate>> getAll(
-            @Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> allRequestParams) {
-        FacetFilter ff = FacetFilter.from(allRequestParams);
-        ff.setResourceType("configuration_template");
-        ff.addFilter("published", false);
-        Paging<ConfigurationTemplate> paging = genericResourceService.getResults(ff).map(r -> ((ConfigurationTemplateBundle) r).getPayload());
-        return ResponseEntity.ok(paging);
+    @Operation(summary = "Deletes the Configuration Template with the given id.")
+    @DeleteMapping(path = "{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT')")
+    public ResponseEntity<?> delete(@PathVariable String prefix,
+                                    @PathVariable String suffix,
+                                    @SuppressWarnings("unused") @Parameter(hidden = true) Authentication auth) {
+        String id = prefix + "/" + suffix;
+        ConfigurationTemplateBundle bundle = service.get(id);
+
+        service.delete(bundle);
+        logger.info("Deleted the Configuration Template with id '{}'", bundle.getId());
+        return new ResponseEntity<>(bundle.getConfigurationTemplate(), HttpStatus.OK);
     }
 
     @Operation(summary = "Returns all Configuration Templates of an Interoperability Record.")
     @BrowseParameters
-    @GetMapping(path = "/getAllByInteroperabilityRecordId/{prefix}/{suffix}", produces = {MediaType.APPLICATION_JSON_VALUE})
-    public ResponseEntity<Paging<ConfigurationTemplate>> getAllByInteroperabilityRecordId(
-            @Parameter(description = "The left part of the ID before the '/'")
-            @PathVariable("prefix") String prefix,
-            @Parameter(description = "The right part of the ID after the '/'")
-            @PathVariable("suffix") String suffix,
-            @Parameter(hidden = true) @RequestParam MultiValueMap<String, Object> allRequestParams) {
-        Paging<ConfigurationTemplate> paging = service.getAllByInteroperabilityRecordId(allRequestParams,
-                prefix + "/" + suffix);
+    @GetMapping(path = "/getAllByInteroperabilityRecordId/{prefix}/{suffix}")
+    public ResponseEntity<Paging<?>> getAllByInteroperabilityRecordId(@PathVariable String prefix,
+                                                                      @PathVariable String suffix,
+                                                                      @Parameter(hidden = true)
+                                                                      @RequestParam MultiValueMap<String, Object> params) {
+        Paging<ConfigurationTemplateBundle> paging = service.getAllByInteroperabilityRecordId(params, prefix + "/" + suffix);
         return ResponseEntity.ok(paging);
+    }
+
+    @Operation(summary = "Returns all Configuration Template Bundles of a specific Interoperability Record,"
+            + " accessible to organisation admins of that Interoperability Record.")
+    @GetMapping(path = "/bundle/getAllByInteroperabilityRecordId/{prefix}/{suffix}")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_EPOT') or @securityService.isInteroperabilityRecordAdmin(#auth, #prefix+'/'+#suffix)")
+    public ResponseEntity<List<ConfigurationTemplateBundle>> getAllBundlesByInteroperabilityRecordId(@PathVariable String prefix,
+                                                                                                     @PathVariable String suffix,
+                                                                                                     @Parameter(hidden = true) Authentication auth) {
+        Paging<ConfigurationTemplateBundle> paging = service.getAllByInteroperabilityRecordId(null, prefix + "/" + suffix);
+        return ResponseEntity.ok(paging.getResults());
     }
 
     @Operation(summary = "Returns a mapping of Interoperability Record ID to Configuration Template list.")
     @BrowseParameters
-    @GetMapping(path = "/interoperabilityRecordIdToConfigurationTemplateListMap", produces = {MediaType.APPLICATION_JSON_VALUE})
+    @GetMapping(path = "/interoperabilityRecordIdToConfigurationTemplateListMap")
     public Map<String, List<String>> interoperabilityRecordIdToConfigurationTemplateListMap() {
         return service.getInteroperabilityRecordIdToConfigurationTemplateListMap();
     }
 
-    @Hidden
-    @PostMapping(path = "/bundle", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<ConfigurationTemplateBundle> addBundle(@RequestBody ConfigurationTemplateBundle ct,
-                                                                 @Parameter(hidden = true) Authentication auth) {
-        ConfigurationTemplateBundle ctBundle = configurationTemplateService.add(ct, auth);
-        logger.info("Added the Configuration Template with name '{}' and id '{}'", ctBundle.getConfigurationTemplate().getName(), ctBundle.getId());
-        return new ResponseEntity<>(ctBundle, HttpStatus.CREATED);
+    //extras
+    @Operation(summary = "Returns all the available Monitoring serviceTypes")
+    @GetMapping(path = "/monitoring/serviceTypes", produces = {MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<List<Vocabulary>> getAvailableServiceTypes() {
+        return new ResponseEntity<>(service.getAvailableServiceTypes(), HttpStatus.OK);
     }
 
-    @Hidden
-    @PostMapping(path = "createPublicConfigurationTemplate", produces = {MediaType.APPLICATION_JSON_VALUE})
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<ConfigurationTemplateBundle> createPublicConfigurationTemplate(@RequestBody ConfigurationTemplateBundle configurationTemplateBundle,
-                                                                                         @Parameter(hidden = true) Authentication auth) {
-        logger.info("User '{}-{}' attempts to create a Public Configuration Template from Configuration Template '{}'-'{}' of the '{}' Catalogue",
-                User.of(auth).getFullName(), User.of(auth).getEmail().toLowerCase(), configurationTemplateBundle.getId(),
-                configurationTemplateBundle.getConfigurationTemplate().getName(), configurationTemplateBundle.getConfigurationTemplate().getCatalogueId());
-        return ResponseEntity.ok(configurationTemplateService.createPublicConfigurationTemplate(configurationTemplateBundle, auth));
+    //helper
+    private LinkedHashMap<String, Object> buildConfigurationTemplate(String interoperabilityRecordId, Model model) {
+        LinkedHashMap<String, Object> ct = new LinkedHashMap<>();
+        ct.put("interoperabilityRecordId", interoperabilityRecordId);
+        ct.put("modelId", model.getId());
+        ct.put("name", model.getName());
+        ct.put("description", model.getDescription());
+        ct.put("nodePID", nodeProperties.getPid().getValue());
+        return ct;
     }
 }

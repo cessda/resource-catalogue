@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2025 OpenAIRE AMKE & Athena Research and Innovation Center
+ * Copyright 2017-2026 OpenAIRE AMKE & Athena Research and Innovation Center
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,15 @@
 
 package gr.uoa.di.madgik.resourcecatalogue.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import gr.uoa.di.madgik.resourcecatalogue.config.AmsProperties;
-import gr.uoa.di.madgik.resourcecatalogue.utils.JmsService;
+import gr.uoa.di.madgik.resourcecatalogue.utils.JmsPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.*;
-import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -35,32 +34,28 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@Primary
-public class AmsJmsService extends DefaultJmsService implements JmsService {
+@Order(0)
+@ConditionalOnProperty(name = "catalogue.jms.ams.enabled", havingValue = "true", matchIfMissing = true)
+public class AmsJmsService implements JmsPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(AmsJmsService.class);
 
     private final WebClient webClient;
     private final AmsProperties amsProperties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    @Value("${catalogue.jms.prefix}")
-    private String jmsPrefix;
-
-    public AmsJmsService(JmsTemplate jmsTopicTemplate,
-                         JmsTemplate jmsQueueTemplate,
-                         WebClient.Builder webClientBuilder,
-                         AmsProperties amsProperties) {
-        super(jmsTopicTemplate, jmsQueueTemplate);
+    public AmsJmsService(WebClient.Builder webClientBuilder,
+                         AmsProperties amsProperties,
+                         ObjectMapper objectMapper) {
         this.webClient = webClientBuilder.build();
         this.amsProperties = amsProperties;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public void convertAndSendTopic(String messageDestination, Object message) {
         try {
             publishTopic(messageDestination.replace(".", "-"), message);
-            super.convertAndSendTopic(jmsPrefix + "." + messageDestination, message);
         } catch (WebClientResponseException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 createTopic(messageDestination.replace(".", "-"));
@@ -71,7 +66,7 @@ public class AmsJmsService extends DefaultJmsService implements JmsService {
 
     @Override
     public void convertAndSendQueue(String messageDestination, Object message) {
-        super.convertAndSendTopic(jmsPrefix + "." + messageDestination, message);
+        logger.debug("AMS queue publishing is not supported for destination: {}", messageDestination);
     }
 
     //region Topics
@@ -172,7 +167,7 @@ public class AmsJmsService extends DefaultJmsService implements JmsService {
             Map<String, Object> pubSubMessage = createMessageForTopic(base64EncodedData);
             String jsonPayload = objectMapper.writeValueAsString(pubSubMessage);
             return new HttpEntity<>(jsonPayload, headers);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Error serializing message to JSON", e);
         }
     }
@@ -183,7 +178,7 @@ public class AmsJmsService extends DefaultJmsService implements JmsService {
             Map<String, Object> pubSubMessage = createMessageForSubscription(topicUrl);
             String jsonPayload = objectMapper.writeValueAsString(pubSubMessage);
             return new HttpEntity<>(jsonPayload, headers);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Error serializing message to JSON", e);
         }
     }
