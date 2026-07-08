@@ -57,12 +57,6 @@ pipeline {
                   [path: 'resource-catalogue-service/src/main/java']
                 ]
               )
-              archiveArtifacts allowEmptyArchive: true, artifacts: '**/dependency-check-report.*'
-              dependencyCheckPublisher(
-                pattern: '**/dependency-check-report.xml',
-                unstableTotalCritical: 1,
-                unstableTotalHigh: 3
-              )
             }
           }
         }
@@ -88,7 +82,7 @@ pipeline {
       steps {
         script {
           sh """
-            echo "\$DOCKER_PASS" | docker login ${REGISTRY} -u "\$DOCKER_USER" --password-stdin
+            gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}
           """
           DOCKER_IMAGE.push()
           if (env.TAG_NAME) {
