@@ -201,17 +201,18 @@ public class SecurityConfig {
 
     @Bean
     Converter<Jwt, AbstractAuthenticationToken> authenticationConverter() {
-        CustomJwtAuthenticationConverter jwtAuthenticationConverter = new CustomJwtAuthenticationConverter();
-        return jwtAuthenticationConverter;
+        return new CustomJwtAuthenticationConverter();
     }
 
     class CustomJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
         public AbstractAuthenticationToken convert(Jwt jwt) {
+            logger.warn(jwt.getClaims().toString());
             String email = jwt.getClaimAsString("email");
             Map<String, Object> info = new HashMap<>();
             if (email == null) {
                 info = userInfoService.getUserInfo("eosc", jwt.getTokenValue());
+                logger.warn(info.toString());
                 email = info.getOrDefault("email", "").toString();
             }
             Map<String, Object> claims = new HashMap<>(jwt.getClaims());

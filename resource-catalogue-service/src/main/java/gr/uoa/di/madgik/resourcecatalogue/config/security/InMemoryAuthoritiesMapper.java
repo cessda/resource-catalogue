@@ -28,17 +28,15 @@ import gr.uoa.di.madgik.resourcecatalogue.service.SecurityService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,8 +47,8 @@ import java.util.stream.Stream;
 public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(InMemoryAuthoritiesMapper.class);
-    private Set<String> providerUsers = new HashSet<>();
-    private Set<String> catalogueUsers = new HashSet<>();
+    private final Set<String> providerUsers = ConcurrentHashMap.newKeySet();
+    private final Set<String> catalogueUsers = ConcurrentHashMap.newKeySet();
     private final Map<String, Set<SimpleGrantedAuthority>> adminsAndEpot = new HashMap<>();
 
     private final OrganisationService organisationService;
@@ -139,10 +137,13 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 //            logger.warn("There are no Catalogue entries in DB");
 //        }
 
-        lock.lock();
-        providerUsers = getProviderUserEmails(providers);
+
+        Set<String> providerUsersTemp = getProviderUserEmails(providers);
+        providerUsers.removeIf(currentUser -> !providerUsersTemp.contains(currentUser));
+        providerUsers.addAll(getProviderUserEmails(providers));
+
 //        catalogueUsers = getCatalogueUserEmails(catalogues); //FIXME
-        lock.unlock();
+
         logger.debug("Update Authorities took {} ms", (System.nanoTime() - time) / 1000000);
     }
 
@@ -155,22 +156,13 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 
         authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
 
-        try {
-            if (!lock.tryLock(10, TimeUnit.SECONDS)) {
-                throw new InsufficientAuthenticationException("Could not authorize user. Try again...");
-            }
-            if (providerUsers.contains(email.toLowerCase())) {
-                authorities.add(new SimpleGrantedAuthority("ROLE_PROVIDER"));
-            }
-            if (catalogueUsers.contains(email.toLowerCase())) {
-                authorities.add(new SimpleGrantedAuthority("ROLE_CATALOGUE_ADMIN"));
-            }
-        } catch (InterruptedException e) {
-            logger.error(e.getMessage(), e);
-            throw new RuntimeException(e);
-        } finally {
-            lock.unlock();
+        if (providerUsers.contains(email.toLowerCase())) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_PROVIDER"));
         }
+        if (catalogueUsers.contains(email.toLowerCase())) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_CATALOGUE_ADMIN"));
+        }
+
         if (adminsAndEpot.containsKey(email.toLowerCase())) {
             authorities.addAll(adminsAndEpot.get(email.toLowerCase()));
         }
@@ -219,8 +211,7 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
 
     private void mergeRoles(Map<String, Set<SimpleGrantedAuthority>> roles, Map<String, SimpleGrantedAuthority> newRoles) {
         for (Map.Entry<String, SimpleGrantedAuthority> role : newRoles.entrySet()) {
-            roles.putIfAbsent(role.getKey(), new HashSet<>());
-            roles.get(role.getKey()).add(role.getValue());
+            roles.computeIfAbsent(role.getKey(), _ -> new HashSet<>()).add(role.getValue());
         }
     }
 
@@ -240,14 +231,14 @@ public class InMemoryAuthoritiesMapper implements AuthoritiesMapper {
                 .map(String::toLowerCase)
                 .collect(Collectors.toMap(
                         Function.identity(),
-                        e -> new SimpleGrantedAuthority("ROLE_EPOT"))
+                        _ -> new SimpleGrantedAuthority("ROLE_EPOT"))
                 ));
         mergeRoles(adminsAndEpot, catalogueProperties.getAdmins()
                 .stream()
                 .map(String::toLowerCase)
                 .collect(Collectors.toMap(
                         Function.identity(),
-                        a -> new SimpleGrantedAuthority("ROLE_ADMIN"))
+                        _ -> new SimpleGrantedAuthority("ROLE_ADMIN"))
                 ));
     }
 }
