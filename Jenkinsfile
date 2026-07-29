@@ -25,7 +25,7 @@ pipeline {
     stage('Determine Docker Tag') {
       steps {
         script {
-          DOCKER_TAG = sh(script: "./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+          DOCKER_TAG = ${GIT_COMMIT}
           echo "Docker tag: ${DOCKER_TAG}"
           currentBuild.displayName = "${currentBuild.displayName}-${DOCKER_TAG}"
         }
@@ -87,13 +87,6 @@ pipeline {
             gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}
           """
           DOCKER_IMAGE.push()
-          if (DOCKER_TAG.endsWith('-SNAPSHOT')) {
-            DOCKER_IMAGE.push("dev")
-          } else {
-            def minorTag = DOCKER_TAG.tokenize('.').take(2).join('.')
-            DOCKER_IMAGE.push(minorTag)
-            DOCKER_IMAGE.push("latest")
-          }
         }
       }
     }
