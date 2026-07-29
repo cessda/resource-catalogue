@@ -212,7 +212,7 @@ public class SecurityConfig {
             Map<String, Object> info = new HashMap<>();
             if (email == null) {
                 info = userInfoService.getUserInfo("eosc", jwt.getTokenValue());
-                email = info.get("email").toString();
+                email = info.getOrDefault("email", "").toString();
             }
             Map<String, Object> claims = new HashMap<>(jwt.getClaims());
             claims.putAll(info);
